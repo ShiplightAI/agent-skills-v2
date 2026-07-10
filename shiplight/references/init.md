@@ -52,7 +52,7 @@ project unable to run Shiplight tests. Then run `npm install`.
 Scaffolding only writes `.env.example` (commented placeholders) — tests can't run
 until `.env` has real values. `npx shiplight test` needs exactly one of:
 
-- `SHIPLIGHT_API_TOKEN` — routes the agent's AI calls through Shiplight Cloud, no
+- `SHIPLIGHT_API_TOKEN` — routes the agent's AI calls through Shiplight LLM Proxy, no
   separate provider key needed.
 - An AI provider key — `GOOGLE_API_KEY`, `ANTHROPIC_API_KEY`, or `OPENAI_API_KEY`
   (optionally paired with `WEB_AGENT_MODEL` to pick a non-default model).
