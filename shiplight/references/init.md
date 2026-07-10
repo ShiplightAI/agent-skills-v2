@@ -47,7 +47,34 @@ when present) as the source of truth, and write the merged result back with Edit
 Resolve every entry before `npm install` — a skipped merge usually leaves the
 project unable to run Shiplight tests. Then run `npm install`.
 
-## 3. Discover & write `specs/context.md`
+## 3. Configure the env tests need to run
+
+Scaffolding only writes `.env.example` (commented placeholders) — tests can't run
+until `.env` has real values. `npx shiplight test` needs exactly one of:
+
+- `SHIPLIGHT_API_TOKEN` — routes the agent's AI calls through Shiplight LLM Proxy, no
+  separate provider key needed.
+- An AI provider key — `GOOGLE_API_KEY`, `ANTHROPIC_API_KEY`, or `OPENAI_API_KEY`
+  (optionally paired with `WEB_AGENT_MODEL` to pick a non-default model).
+
+Ask the user which they want. Since editing `.env` normally requires the user's
+explicit ask (`_shared/project-layout.md`), this step **is** that ask — but still
+confirm which variable before writing.
+
+- **Shiplight API token**: run `npx shiplight login` yourself via Bash — it opens
+  the user's local browser for device-auth approval on its own (no terminal
+  interaction needed from them), polls until they approve, then creates the token
+  and writes `SHIPLIGHT_API_TOKEN=...` to `.env` automatically. Tell the user to
+  check their browser and approve; use a generous timeout since approval can take
+  a few minutes. Don't hand-write the token into `.env` yourself — the command
+  owns that write.
+- **AI provider key**: ask the user for the key, write `<KEY>=<value>` to `.env`
+  yourself, and never echo the raw value back in chat or logs.
+
+Confirm `.env` is git-ignored (the scaffold's `.gitignore` merge already adds it)
+before moving on.
+
+## 4. Discover & write `specs/context.md`
 
 Understand the application, user goals, risks, target deployment, auth needs, and
 data strategy. Before asking questions, scan available context: existing
