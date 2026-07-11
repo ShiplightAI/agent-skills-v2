@@ -75,7 +75,7 @@ Show this grouped menu when invoked bare or when clarifying.
 
 **Ship**
 - `ci` — wire CI workflows + failure-triage pipeline
-- `cloud` — read Shiplight Cloud (Nova) test results (runs, failing/flaky tests, artifacts)
+- `cloud` — read Shiplight Cloud (Nova) test results (runs, failing/flaky tests, artifacts) and analytics (health summary, pass-rate/run trends, slowest/flaky rankings, failure attribution)
 
 **Help**
 - `help` — list subcommands, or `help <subcommand>` for details (does not execute)
@@ -94,7 +94,7 @@ Show this grouped menu when invoked bare or when clarifying.
 | `verify` | screenshot, verify the change, check the UI, visual check | `references/verify.md` |
 | `review` | security review, review my app, accessibility, privacy, performance, seo | `references/review/index.md` |
 | `ci` | github actions, ci setup, pipeline | `references/ci.md` |
-| `cloud` | cloud results, test run results, failing tests, flaky tests, ci results, download artifacts | `references/cloud/index.md` |
+| `cloud` | cloud results, test run results, failing tests, flaky tests, ci results, download artifacts, test health, pass rate, pass-rate/run trend, slowest tests, flakiest tests, failure attribution, failure breakdown, analytics | `references/cloud/index.md` |
 | `help` | what can shiplight do, list commands, usage, `?` | `references/help.md` |
 
 ## Ambiguity notes
