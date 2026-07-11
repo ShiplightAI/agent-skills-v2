@@ -2,7 +2,8 @@
 
 Read-only access to test results on Shiplight Cloud (Nova, `nova-api.shiplight.ai`)
 uploaded by the Shiplight CLI / CI runner: list runs, fetch run details, list
-failing/flaky tests, and download artifacts. The `/v1` segment is the API contract
+failing/flaky tests, download artifacts, and read aggregate analytics (summary,
+trends, test rankings, failure attribution). The `/v1` segment is the API contract
 version. Do not publish runs through this subcommand.
 
 > **Scope:** this subcommand targets **Nova (Cloud v2)** only — the forward
@@ -234,6 +235,61 @@ curl -H "Authorization: Bearer $SHIPLIGHT_API_TOKEN" \
 
 **Response:** raw file bytes; save with `curl -o <file>`.
 
+### Analytics (aggregate metrics)
+
+`/v1/analytics/*` returns **computed** metrics, not raw rows. Requires a full-inherit or `analytics:read` token (otherwise `403`). All validation errors are `400`; a valid query that matches no data returns `[]` or a zeroed object, not an error.
+
+```bash
+curl -H "Authorization: Bearer $SHIPLIGHT_API_TOKEN" \
+  "$SHIPLIGHT_API_URL/v1/analytics/tests/failing?repo=org/repo&limit=10"
+```
+
+Shared query params (each endpoint uses the subset it needs):
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `repo` | string | Exact match on `org/repo`. Omit for org-wide. |
+| `branch` | string | Exact match on branch |
+| `from` | string | ISO timestamp, inclusive. Defaults to `now - 7 days` |
+| `to` | string | ISO timestamp, exclusive. Defaults to `now` |
+| `bucket` | string | `day` \| `week` \| `month` — summary + trends. Default `day` |
+| `limit` | number | `1`–`500` — rankings. Default `20` |
+| `minExecutions` | number | Min executions to include — failing/flaky. Default `5` |
+| `sortBy` | string | `p50` \| `p95` \| `executions` — slowest. Default `p50` |
+| `sortOrder` | string | `asc` \| `desc` — slowest. Default `desc` |
+
+| Endpoint | Returns |
+|----------|---------|
+| `GET /v1/analytics/summary` | `{ runPassRate, testPassRate, totalRuns, decidedRuns, totalTestExecutions, decidedTestExecutions }` (rates 0–1) |
+| `GET /v1/analytics/trends/pass-rate` | `[{ date, passRate, totalRuns, passedRuns, failedRuns }]` |
+| `GET /v1/analytics/trends/run-status` | `[{ date, passedRuns, failedRuns, totalRuns, passRate }]` |
+| `GET /v1/analytics/trends/test-results` | `[{ date, passed, flaky, failed, skipped, total, passRate }]` |
+| `GET /v1/analytics/trends/run-duration` | `[{ date, totalRuns, avgDurationSec, p50DurationSec, p95DurationSec, minDurationSec, maxDurationSec }]` |
+| `GET /v1/analytics/tests/failing` | `[{ file, testName, passedCount, flakyCount, failedCount, passRate, flakeRate, totalExecutions }]` |
+| `GET /v1/analytics/tests/flaky` | same shape as `tests/failing`, ranked by flakiness |
+| `GET /v1/analytics/tests/slowest` | `[{ file, testName, p50Ms, p95Ms, executionCount }]` |
+| `GET /v1/analytics/attribution/summary` | `{ classifiedFailures, byCategory: { app_regression, spec_issue, test_data, infra_flake, unknown } }` (counts; shares = `byCategory[c]/classifiedFailures`) |
+| `GET /v1/analytics/attribution/trend` | `[{ date, app_regression, spec_issue, test_data, infra_flake, unknown }]` |
+| `GET /v1/analytics/attribution/repos` | `["org/repo", …]` — repos with classification data |
+| `GET /v1/analytics/attribution/branches` | `["main", …]` — accepts `repo` to scope |
+
+Example — `GET /v1/analytics/tests/failing`:
+
+```json
+[
+  {
+    "file": "tests/checkout.spec.ts",
+    "testName": "checkout succeeds",
+    "passedCount": 40,
+    "flakyCount": 2,
+    "failedCount": 8,
+    "passRate": 0.8,
+    "flakeRate": 0.04,
+    "totalExecutions": 50
+  }
+]
+```
+
 ## Workflows
 
 ### Inspect a Run's Results
@@ -248,3 +304,10 @@ curl -H "Authorization: Bearer $SHIPLIGHT_API_TOKEN" \
 1. `GET /v1/failing-tests?repo=org/repo` (or `/v1/flaky-tests`) — defaults to the last 7 days on any branch. Add `branch=` to scope, `from`/`to` to widen or shift the window.
 2. For each row, `GET /v1/s3/file?uri=<reportS3Uri>` to fetch the report JSON.
 3. Parse the report and stream any nested `s3://` URIs via `GET /v1/s3/file?uri=…`.
+
+### Assess Repo Health, Then Triage by Attribution
+
+1. `GET /v1/analytics/summary?repo=org/repo` — overall run/test pass rates for the repo.
+2. `GET /v1/analytics/attribution/summary?repo=org/repo` — of the classified failures, what share are `app_regression` (real bugs to fix) vs `infra_flake` (noise to ignore).
+3. `GET /v1/analytics/tests/failing?repo=org/repo&limit=10` — the ranked worklist; `GET /v1/analytics/tests/flaky` for retry-maskers, `GET /v1/analytics/tests/slowest` for perf.
+4. Drop to the raw endpoints above (`/v1/test-results?repo=&file=`, `/v1/s3/file`) to fetch a specific test's report/artifacts.

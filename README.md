@@ -69,7 +69,7 @@ One entry point routes to every workflow:
 | Subcommand | Purpose |
 |------------|---------|
 | `ci` | Wire CI workflows and the failure-triage pipeline |
-| `cloud` | Read Shiplight Cloud (Nova) results — runs, failing/flaky tests, artifacts (subscription required) |
+| `cloud` | Read Shiplight Cloud (Nova) results — runs, failing/flaky tests, artifacts, and analytics (health summary, trends, rankings, failure attribution) (subscription required) |
 
 ### Help
 

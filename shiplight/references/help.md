@@ -21,7 +21,7 @@ assumes the user wants to act and asks one clarifying question.)
 Resolve `<subcommand>` via the dispatch table, then read the **header** of its
 reference (`references/<sub>.md` or `references/<sub>/index.md`) and give a short
 summary: what it does, when to use it, and its internal modes / sub-verbs if any
-(e.g. `cloud` → runs, failing/flaky tests, artifacts; `review` → its
+(e.g. `cloud` → runs, failing/flaky tests, artifacts, analytics; `review` → its
 domains). End with the exact invocation (`/shiplight <sub> ...`). Do **not** run
 the subcommand.
 
