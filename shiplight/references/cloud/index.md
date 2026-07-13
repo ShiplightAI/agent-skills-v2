@@ -258,20 +258,20 @@ Shared query params (each endpoint uses the subset it needs):
 | `sortBy` | string | `p50` \| `p95` \| `executions` — slowest. Default `p50` |
 | `sortOrder` | string | `asc` \| `desc` — slowest. Default `desc` |
 
-| Endpoint | Returns |
-|----------|---------|
-| `GET /v1/analytics/summary` | `{ runPassRate, testPassRate, totalRuns, decidedRuns, totalTestExecutions, decidedTestExecutions }` (rates 0–1) |
-| `GET /v1/analytics/trends/pass-rate` | `[{ date, passRate, totalRuns, passedRuns, failedRuns }]` |
-| `GET /v1/analytics/trends/run-status` | `[{ date, passedRuns, failedRuns, totalRuns, passRate }]` |
-| `GET /v1/analytics/trends/test-results` | `[{ date, passed, flaky, failed, skipped, total, passRate }]` |
-| `GET /v1/analytics/trends/run-duration` | `[{ date, totalRuns, avgDurationSec, p50DurationSec, p95DurationSec, minDurationSec, maxDurationSec }]` |
-| `GET /v1/analytics/tests/failing` | `[{ file, testName, passedCount, flakyCount, failedCount, passRate, flakeRate, totalExecutions }]` |
-| `GET /v1/analytics/tests/flaky` | same shape as `tests/failing`, ranked by flakiness |
-| `GET /v1/analytics/tests/slowest` | `[{ file, testName, p50Ms, p95Ms, executionCount }]` |
-| `GET /v1/analytics/attribution/summary` | `{ classifiedFailures, byCategory: { app_regression, spec_issue, test_data, infra_flake, unknown } }` (counts; shares = `byCategory[c]/classifiedFailures`) |
-| `GET /v1/analytics/attribution/trend` | `[{ date, app_regression, spec_issue, test_data, infra_flake, unknown }]` |
-| `GET /v1/analytics/attribution/repos` | `["org/repo", …]` — repos with classification data |
-| `GET /v1/analytics/attribution/branches` | `["main", …]` — accepts `repo` to scope |
+| Endpoint | Description | Returns |
+|----------|-------------|---------|
+| `GET /v1/analytics/summary` | Headline run + test pass rates and totals for the window | `{ runPassRate, testPassRate, totalRuns, decidedRuns, totalTestExecutions, decidedTestExecutions }` (rates 0–1) |
+| `GET /v1/analytics/trends/pass-rate` | Run pass rate over time | `[{ date, passRate, totalRuns, passedRuns, failedRuns }]` |
+| `GET /v1/analytics/trends/run-status` | Passed vs failed run counts over time | `[{ date, passedRuns, failedRuns, totalRuns, passRate }]` |
+| `GET /v1/analytics/trends/test-results` | Test-result counts (passed/flaky/failed/skipped) over time | `[{ date, passed, flaky, failed, skipped, total, passRate }]` |
+| `GET /v1/analytics/trends/run-duration` | Run-duration percentiles over time | `[{ date, totalRuns, avgDurationSec, p50DurationSec, p95DurationSec, minDurationSec, maxDurationSec }]` |
+| `GET /v1/analytics/tests/failing` | Tests ranked by failure rate | `[{ file, testName, passedCount, flakyCount, failedCount, passRate, flakeRate, totalExecutions }]` |
+| `GET /v1/analytics/tests/flaky` | Tests ranked by flakiness | same shape as `tests/failing` |
+| `GET /v1/analytics/tests/slowest` | Tests ranked by duration (p50/p95) | `[{ file, testName, p50Ms, p95Ms, executionCount }]` |
+| `GET /v1/analytics/attribution/summary` | Failure counts by cause category | `{ classifiedFailures, byCategory: { app_regression, spec_issue, test_data, infra_flake, unknown } }` (counts; shares = `byCategory[c]/classifiedFailures`) |
+| `GET /v1/analytics/attribution/trend` | Failure category counts over time | `[{ date, app_regression, spec_issue, test_data, infra_flake, unknown }]` |
+| `GET /v1/analytics/attribution/repos` | Repos that have classification data | `["org/repo", …]` |
+| `GET /v1/analytics/attribution/branches` | Branches that have classification data (accepts `repo` to scope) | `["main", …]` |
 
 Example — `GET /v1/analytics/tests/failing`:
 
