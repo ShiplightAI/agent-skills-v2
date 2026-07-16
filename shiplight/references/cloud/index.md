@@ -290,6 +290,88 @@ Example — `GET /v1/analytics/tests/failing`:
 ]
 ```
 
+### Recorder Sessions (browser screen recordings)
+
+Recorded browser sessions captured by the Shiplight screen-recorder extension: an
+interaction/network/console/navigation **event timeline**, a manifest (user agent,
+viewport, codecs), reviewer comments, and — behind an explicit opt-in — the raw
+screen/audio recordings. This is a **different data source** from the test-run
+`videoS3Uri` artifacts above (those are Playwright captures of CI test runs).
+
+> **Scope:** the token must carry the `recordings:read` scope (a full-inherit token —
+> one created with no scope restrictions — also works). All access is org-scoped: a
+> session belonging to another org returns `404`, never another org's data.
+
+Use these to **author tests from a real user session** — the `interaction` events carry
+stable element selectors (`testId`, `role`, `name`), and `network` events carry the API
+calls each interaction triggered.
+
+#### List Recorder Sessions
+
+```bash
+curl -H "Authorization: Bearer $SHIPLIGHT_API_TOKEN" \
+  "$SHIPLIGHT_API_URL/v1/recorder-sessions?pageSize=20"
+```
+
+Metadata only (no event timeline, no recordings), newest first.
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `page` | number | Default `1` |
+| `pageSize` | number | Default `20`, max `100` |
+
+**Response:** `{ sessions, total, page, pageSize }`, where each session is
+`{ sessionId, title, scope, startedAt, durationMs, eventCounts, hasStreamFailure, streamFailures, createdByEmail, createdByDisplayName, createdAt }`. `sessionId` is a UUID; `scope` is `tab` or `desktop`; `eventCounts` is a per-kind tally.
+
+#### Get Recorder Session
+
+```bash
+curl -H "Authorization: Bearer $SHIPLIGHT_API_TOKEN" \
+  "$SHIPLIGHT_API_URL/v1/recorder-sessions/<sessionId>"
+```
+
+Returns the full session: metadata, manifest, the **inlined event timeline**, and
+comments. By **default the response does not include the video/audio recordings** —
+they're large binaries, so they're strictly opt-in via `include`.
+
+| Param | Type | Description |
+|-------|------|-------------|
+| `include` | string | Comma-separated opt-ins for the heavy binaries: `video`, `audio`, or `all`. Default: none — no recordings, only the (non-binary) event data. |
+| `eventKinds` | string | Comma-separated filter for the timeline: any of `interaction`, `navigation`, `network`, `console`, `dom`, `metadata`. Default: all kinds. Pass e.g. `eventKinds=interaction,navigation,network,console` to drop the large `dom` (rrweb) replay stream you don't need for authoring. |
+
+```json
+{
+  "session": {
+    "sessionId": "8f3b…", "title": "Checkout flow", "scope": "tab",
+    "startedAt": "2026-07-14T10:00:00.000Z", "durationMs": 48213,
+    "eventCounts": { "interaction": 12, "navigation": 3, "network": 20, "console": 1, "dom": 40, "metadata": 1 },
+    "hasStreamFailure": false, "streamFailures": [],
+    "createdByEmail": "user@acme.com", "createdByDisplayName": "Sam", "createdAt": "2026-07-14T10:00:52.000Z"
+  },
+  "manifest": { "userAgent": "Mozilla/5.0…", "platform": "macOS", "maskInputs": true, "videoMimeType": "video/webm", "audioMimeType": null, "pauseCount": 0 },
+  "events": [
+    { "t": 1200, "seq": 4, "kind": "interaction", "type": "click",
+      "target": { "selector": "[data-testid='checkout']", "strategy": "testid", "role": "button", "name": "Checkout", "testId": "checkout", "tag": "button" } },
+    { "t": 1260, "seq": 5, "kind": "network", "api": "fetch", "method": "POST", "url": "/api/cart/checkout", "status": 200, "startT": 1260, "endT": 1440 },
+    { "t": 1500, "seq": 6, "kind": "navigation", "navType": "pushState", "url": "/checkout/payment", "fromUrl": "/cart" }
+  ],
+  "eventsUrl": null,
+  "comments": [
+    { "id": "c1", "videoPositionMs": 1200, "body": "bug repro starts here", "authorEmail": "user@acme.com", "authorDisplayName": "Sam", "createdAt": "…", "updatedAt": "…" }
+  ],
+  "media": null
+}
+```
+
+Events are sorted by `(t, seq)`. **Large timelines are not inlined**: if `events.json`
+exceeds ~5 MiB (long sessions with heavy `dom`/rrweb data), `events` is `null` and
+`eventsUrl` holds a short-lived presigned GET for the raw `events.json` — fetch and parse
+that yourself (`curl "$eventsUrl"`). `eventKinds` filtering applies only to inlined events, so
+narrowing to `interaction,navigation,network,console` keeps most sessions inline. `media` is
+`null` unless requested; with `?include=video,audio` it becomes
+`{ "video": { "url", "expiresIn" }, "audio": {…} }` (short-lived presigned GET URLs). A
+per-stream entry is `null` when that stream failed at capture time (see `streamFailures`).
+
 ## Workflows
 
 ### Inspect a Run's Results
@@ -311,3 +393,13 @@ Example — `GET /v1/analytics/tests/failing`:
 2. `GET /v1/analytics/attribution/summary?repo=org/repo` — of the classified failures, what share are `app_regression` (real bugs to fix) vs `infra_flake` (noise to ignore).
 3. `GET /v1/analytics/tests/failing?repo=org/repo&limit=10` — the ranked worklist; `GET /v1/analytics/tests/flaky` for retry-maskers, `GET /v1/analytics/tests/slowest` for perf.
 4. Drop to the raw endpoints above (`/v1/test-results?repo=&file=`, `/v1/s3/file`) to fetch a specific test's report/artifacts.
+### Author a Test from a Recorded Session
+
+1. `GET /v1/recorder-sessions?pageSize=20` to find a recent session (note its `sessionId`).
+2. `GET /v1/recorder-sessions/<sessionId>?eventKinds=interaction,navigation,network,console`
+   to pull the timeline **without** the large `dom` replay stream or any video.
+3. Walk the `events` in `(t, seq)` order: each `interaction` gives you a stable locator
+   (`target.testId` / `role` + `name`), and the `network` events immediately after it are
+   the requests to assert on. `navigation` events mark page transitions.
+4. Generate the test from that sequence. Only fetch `?include=video` if you actually need
+   to watch the recording — it's a large binary and not needed for authoring.
