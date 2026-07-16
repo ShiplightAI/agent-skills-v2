@@ -1,6 +1,6 @@
 ---
 name: shiplight
-description: "Shiplight QA toolkit — the single entry point for all Shiplight test/QA work. Use ONLY when the user explicitly says 'shiplight' (e.g. 'write a shiplight test', 'use shiplight to verify X', 'shiplight cover') or invokes /shiplight. Routes to subcommands: init, auth, update, create-yaml-tests, create-agent-verification, cover, fix, verify, review, ci, cloud, help."
+description: "Shiplight QA toolkit — the single entry point for all Shiplight test/QA work. Use ONLY when the user explicitly says 'shiplight' (e.g. 'write a shiplight test', 'use shiplight to verify X', 'shiplight cover') or invokes /shiplight. Routes to subcommands: init, auth, update, create-yaml-tests, create-agent-verification, cover, fix, verify, review, ci, cloud, recordings, help."
 ---
 
 # Shiplight
@@ -63,6 +63,7 @@ Show this grouped menu when invoked bare or when clarifying.
 - `create-yaml-tests` — implement deterministic YAML E2E tests from a spec
 - `create-agent-verification` — create a reusable agent-run verification script
 - `cover` — decide test format + effort, plan, drive the producers, report
+- `recordings` — read Shiplight Screen Recorder sessions (journey, comments, media) as source material
 
 **Maintain**
 - `fix` — reproduce and repair failing or drifted tests
@@ -90,6 +91,7 @@ Show this grouped menu when invoked bare or when clarifying.
 | `create-yaml-tests` | yaml test(s), create a yaml test, write a yaml/e2e test, deterministic test, e2e test, write a test | `references/create-yaml-tests/index.md` |
 | `create-agent-verification` | agent verification, create agent verification, verification script, repeatable agent check, live-env verification | `references/create-agent-verification/index.md` |
 | `cover` | coverage, test coverage, what's untested, coverage gaps, testing strategy, plan tests, write a spec, test plan, set up tests for my app, build tests, test this feature | `references/cover/index.md` |
+| `recordings` | screen recording(s), recorder session(s), read a recording, what did the tester do, product session, recorded walkthrough | `references/recordings.md` |
 | `fix` | failing test, triage, repair test, update test for product change | `references/fix.md` |
 | `verify` | screenshot, verify the change, check the UI, visual check | `references/verify.md` |
 | `review` | security review, review my app, accessibility, privacy, performance, seo | `references/review/index.md` |
@@ -112,3 +114,8 @@ Show this grouped menu when invoked bare or when clarifying.
   "from the last run", plural reporting) is `cloud` (Nova results); *repairing* a
   broken test ("my test is failing", "fix this") is `fix`. Ask if the phrasing
   doesn't say which.
+- **"recording" / "session"** → a *product/user session captured by the Screen
+  Recorder* ("the recording", "what did the tester do", "read that session") is
+  `recordings`; a *CI test run* ("the last run", "run results") is `cloud`. Both
+  read from Nova but return unrelated data — ask if "session"/"run" alone doesn't
+  disambiguate.

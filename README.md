@@ -43,6 +43,7 @@ One entry point routes to every workflow:
 | `create-yaml-tests` | Implement deterministic YAML E2E tests from a spec — plan, scaffold, and write by walking through the app |
 | `create-agent-verification` | Create a reusable coding-agent-driven verification script that runs against a live environment (browser, API, DB, logs) with auditable PASS/FAIL reports |
 | `cover` | Decide the test format and effort, plan, drive the producers, and report what was tested and by what type |
+| `recordings` | Read Shiplight Screen Recorder sessions — journey, tester comments, and media — as source material for understanding a feature or authoring tests |
 
 ### Maintain
 
