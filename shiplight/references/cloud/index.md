@@ -321,7 +321,7 @@ Metadata only (no event timeline, no recordings), newest first.
 | `pageSize` | number | Default `20`, max `100` |
 
 **Response:** `{ sessions, total, page, pageSize }`, where each session is
-`{ sessionId, title, scope, startedAt, durationMs, eventCounts, hasStreamFailure, streamFailures, createdByEmail, createdByDisplayName, createdAt }`. `sessionId` is a UUID; `scope` is `tab` or `desktop`; `eventCounts` is a per-kind tally.
+`{ sessionId, title, scope, startedAt, durationMs, eventCounts, hasStreamFailure, streamFailures, transcriptionStatus, createdByEmail, createdByDisplayName, createdAt }`. `sessionId` is a UUID; `scope` is `tab` or `desktop`; `eventCounts` is a per-kind tally; `title` is auto-derived from the transcript when one is available, else a formatted timestamp; `transcriptionStatus` is one of `pending` \| `processing` \| `succeeded` \| `failed` \| `skipped` (`skipped` = no audio was captured, so there is nothing to transcribe).
 
 #### Get Recorder Session
 
@@ -330,9 +330,9 @@ curl -H "Authorization: Bearer $SHIPLIGHT_API_TOKEN" \
   "$SHIPLIGHT_API_URL/v1/recorder-sessions/<sessionId>"
 ```
 
-Returns the full session: metadata, manifest, the **inlined event timeline**, and
-comments. By **default the response does not include the video/audio recordings** —
-they're large binaries, so they're strictly opt-in via `include`.
+Returns the full session: metadata, manifest, the **inlined event timeline**, the
+voice-narration **transcript**, and comments. By **default the response does not include the
+video/audio recordings** — they're large binaries, so they're strictly opt-in via `include`.
 
 | Param | Type | Description |
 |-------|------|-------------|
@@ -345,7 +345,7 @@ they're large binaries, so they're strictly opt-in via `include`.
     "sessionId": "8f3b…", "title": "Checkout flow", "scope": "tab",
     "startedAt": "2026-07-14T10:00:00.000Z", "durationMs": 48213,
     "eventCounts": { "interaction": 12, "navigation": 3, "network": 20, "console": 1, "dom": 40, "metadata": 1 },
-    "hasStreamFailure": false, "streamFailures": [],
+    "hasStreamFailure": false, "streamFailures": [], "transcriptionStatus": "succeeded",
     "createdByEmail": "user@acme.com", "createdByDisplayName": "Sam", "createdAt": "2026-07-14T10:00:52.000Z"
   },
   "manifest": { "userAgent": "Mozilla/5.0…", "platform": "macOS", "maskInputs": true, "videoMimeType": "video/webm", "audioMimeType": null, "pauseCount": 0 },
@@ -359,6 +359,14 @@ they're large binaries, so they're strictly opt-in via `include`.
   "comments": [
     { "id": "c1", "videoPositionMs": 1200, "body": "bug repro starts here", "authorEmail": "user@acme.com", "authorDisplayName": "Sam", "createdAt": "…", "updatedAt": "…" }
   ],
+  "transcript": {
+    "text": "Okay, I'm clicking the checkout button, and now the payment page loads.",
+    "segments": [
+      { "text": "Okay, I'm clicking the checkout button,", "startMs": 1100, "endMs": 2600, "confidence": 0.98 },
+      { "text": "and now the payment page loads.", "startMs": 2600, "endMs": 3900 }
+    ],
+    "provider": "deepgram", "language": "en"
+  },
   "media": null
 }
 ```
@@ -371,6 +379,15 @@ narrowing to `interaction,navigation,network,console` keeps most sessions inline
 `null` unless requested; with `?include=video,audio` it becomes
 `{ "video": { "url", "expiresIn" }, "audio": {…} }` (short-lived presigned GET URLs). A
 per-stream entry is `null` when that stream failed at capture time (see `streamFailures`).
+
+`transcript` is the recorder's spoken narration (what the user said aloud while capturing) —
+`{ text, segments, provider, language }`, or `null`. `text` is the full plain-text; `segments`
+are pause-delimited chunks `{ text, startMs, endMs, confidence? }` whose `startMs`/`endMs` are on
+the **same millisecond clock as each event's `t`**, so you can align spoken intent with the
+interaction that triggered it. It's `null` until transcription finishes (`transcriptionStatus`
+tells you which state: `pending`/`processing` = still coming, `succeeded` = present, `failed` =
+won't appear without a re-run, `skipped` = no audio was captured). `segments` is `[]` when the
+audio had no detectable speech.
 
 ## Workflows
 
@@ -401,5 +418,10 @@ per-stream entry is `null` when that stream failed at capture time (see `streamF
 3. Walk the `events` in `(t, seq)` order: each `interaction` gives you a stable locator
    (`target.testId` / `role` + `name`), and the `network` events immediately after it are
    the requests to assert on. `navigation` events mark page transitions.
-4. Generate the test from that sequence. Only fetch `?include=video` if you actually need
+4. Read the `transcript` (if `transcriptionStatus` is `succeeded`) for the user's spoken intent —
+   *what* they were trying to do and *what they expected*, which the events alone don't tell you.
+   Line up each `segment`'s `startMs`/`endMs` with the event `t` in that window to attach the
+   narration ("now I click checkout and it should go to payment") to the exact interaction — this
+   is the source of good assertion descriptions and the expected-outcome for each step.
+5. Generate the test from that sequence. Only fetch `?include=video` if you actually need
    to watch the recording — it's a large binary and not needed for authoring.
