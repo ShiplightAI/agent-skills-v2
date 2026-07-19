@@ -14,7 +14,9 @@ Use the Shiplight CLI, not the Cloud REST API, to publish runs:
 
 Always run `report` with `if: always()` so results upload even when tests fail — otherwise a red run produces no cloud report.
 
-There are two ways to run E2E tests in GitHub Actions. Pick one.
+First determine the CI provider. **GitHub Actions** → Options 1–2 below (plus optional auto-triage). **GitLab / Jenkins / CircleCI / any other Node pipeline** → jump to [Non-GitHub providers](#non-github-providers); Shiplight-hosted runners and auto-triage do not apply there.
+
+On GitHub Actions there are two ways to run E2E tests. Pick one.
 
 ## Option 1 — Default GitHub-hosted runner (easiest)
 
@@ -160,6 +162,82 @@ Notes:
 - Provide at least one model credential (`claude_code_oauth_token` or `anthropic_api_key`); `openai_api_key` enables the Codex fallback. `autofix_github_token` and `slack_bot_token` are optional.
 - `autofix-runner` re-runs the failing test, so it needs browsers/network — use a Shiplight runner, or install Chromium in a stock runner the same way the test workflow does.
 - This job runs privileged (`contents: write`, live credentials). Pin `uses:` to an immutable tag (`@v1.x.y`), not a branch.
+
+## Non-GitHub providers
+
+Shiplight-hosted runners (`runs-on: shiplight-*`) and the auto-triage pipeline are GitHub Actions only. On GitLab / Jenkins / CircleCI / any Node pipeline, run the same CLI. Contract for every non-GitHub provider:
+
+- Expose `SHIPLIGHT_API_TOKEN` (org token from <https://nova.shiplight.ai/api-tokens>, stored as a masked secret) to **every** `npx shiplight` step, plus `SHIPLIGHT_REPORT_TO_CLOUD=1`.
+- Install Chromium yourself (`npx playwright install --with-deps chromium`) — no stock image ships it.
+- Run `report` in an always-run hook (`after_script` / `post { always }` / `when: always`) so a red run still uploads.
+- Unavailable off GitHub Actions: auto-triage, self-healing action cache, automatic LLM credentials. If tests use AI actions, pass LLM creds as env.
+- Templates assume the project at the repo root; otherwise `cd` into the subdir before each command.
+
+### GitLab CI — `.gitlab-ci.yml`
+
+```yaml
+e2e:
+  image: node:20
+  variables:
+    SHIPLIGHT_REPORT_TO_CLOUD: "1"
+    # Add SHIPLIGHT_API_TOKEN as a masked CI/CD variable (auto-injected).
+  script:
+    - npm install
+    - npx playwright install --with-deps chromium
+    - npx shiplight test
+  after_script:
+    - npx shiplight report # after_script always runs, even on failure
+```
+
+### Jenkins — `Jenkinsfile`
+
+```groovy
+pipeline {
+  agent { docker { image 'node:20' } }
+  environment {
+    SHIPLIGHT_REPORT_TO_CLOUD = '1'
+    SHIPLIGHT_API_TOKEN = credentials('shiplight-api-token')
+  }
+  stages {
+    stage('Install') {
+      steps {
+        sh 'npm install'
+        sh 'npx playwright install --with-deps chromium'
+      }
+    }
+    stage('E2E tests') {
+      steps { sh 'npx shiplight test' }
+      post { always { sh 'npx shiplight report' } }
+    }
+  }
+}
+```
+
+### CircleCI — `.circleci/config.yml`
+
+```yaml
+version: 2.1
+jobs:
+  e2e:
+    docker:
+      - image: cimg/node:20.11-browsers # ships Chromium system libs
+    environment:
+      SHIPLIGHT_REPORT_TO_CLOUD: "1"
+      # Add SHIPLIGHT_API_TOKEN as a project env var or context.
+    steps:
+      - checkout
+      - run: npm install
+      - run: npx playwright install chromium
+      - run: npx shiplight test
+      - run:
+          name: Upload results to Shiplight
+          command: npx shiplight report
+          when: always
+workflows:
+  e2e:
+    jobs:
+      - e2e
+```
 
 ## Notes
 
