@@ -84,14 +84,32 @@ Always use `VERIFY:` shorthand. Do not use `action: verify` directly.
 ## IF and WHILE conditions
 
 Use natural-language AI conditions for DOM-based checks — they self-heal when the
-DOM changes. Use `js:` conditions only for counter/state logic (e.g.
-`js: retryCount < 3`), never for DOM inspection.
+DOM changes. Prefer `js:` conditions for counter/state logic (e.g.
+`js: retryCount < 3`) and avoid them for DOM inspection: a renamed selector would
+break the branch, and unlike a natural-language condition a `js:` check does not
+self-heal. (`WAIT_UNTIL` deliberately inverts this trade-off — see Waiting below.)
 
 ## Waiting
 
 - `WAIT:` is a fixed-duration pause. Use only for known delays.
-- `WAIT_UNTIL:` checks a condition repeatedly until met or timed out. It makes
-  model calls, so use only for long conditional waits.
+- `WAIT_UNTIL:` polls a condition until met or timed out, and supports the same
+  `js:` prefix as IF/WHILE — but **the DOM rule inverts here: prefer `js:`, and
+  DOM predicates are fine.** IF/WHILE avoid `js:` DOM checks to keep self-healing,
+  and can afford to: the condition runs once (IF) or per-iteration (WHILE), so an
+  AI check is cheap. A `WAIT_UNTIL` re-checks on *every poll*, so an AI condition
+  costs a model call per poll (up to ~10 per wait) — far more than the one-time
+  self-heal is worth. A `js:` predicate polls in-process with **no model calls**,
+  so it wins even for DOM inspection.
+  - Write a boolean-returning predicate against the Playwright `page`, e.g.
+    `js: (await page.locator('.spinner').count()) === 0`. A `document.querySelector(...)`
+    lookup also works — the compiler rewrites it to the equivalent `page.locator(...)` —
+    but prefer `page.locator` directly; other `document`/`window` APIs (e.g.
+    `document.readyState`) are not guaranteed to translate and will fail at runtime.
+    A Playwright `waitFor()` resolves to `undefined` and never registers as met —
+    don't use it as the predicate.
+  - Fall back to a natural-language condition only when the wait is genuinely
+    semantic (no reliable selector, or the check can't be expressed as a short
+    predicate). A `js:` wait does not self-heal, so keep the predicate simple and robust.
 
 Minimize explicit waits — browser actions, navigation, and assertions already
 include waiting. Don't add waits after ordinary page loads, clicks, form submits,
