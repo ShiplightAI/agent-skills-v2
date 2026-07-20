@@ -21,6 +21,26 @@ resources first; they are the source of truth.
   page-level scripting. Do not use raw JS for clicks, normal assertions, or
   navigation.
 
+## The `js:` key — one model
+
+`js:` always means the same thing: run this Playwright code in the **test
+context (Node.js)** instead of asking the AI. The scope is always the same —
+`page`, `expect`, and `agent` are available and `await` is allowed.
+`document`/`window` are **not** defined; browser-side state must go through
+`page.evaluate(() => ...)`. What varies by statement type:
+
+| Statement | Natural language is… | `js:` form | When the JS fails | Self-heals at runtime |
+|---|---|---|---|---|
+| Code (`description:` + `js:`) | label only | statement block | test fails | no |
+| `VERIFY:` + `js:` | the assertion — AI fallback intent | one `expect()` assertion | AI re-checks the natural-language assertion | **yes** |
+| `IF:` / `WHILE:` `"js: ..."` | *(absent)* | single expression | a throw fails the test; falsy just takes the other branch / ends the loop | no |
+| `WAIT_UNTIL:` `"js: ..."` | *(absent)* | single expression | never fails — warning in the step result, test continues at timeout | no |
+
+Why only VERIFY falls back to AI: fallback exists only where failure is
+detectable at runtime. An assertion throws when it is wrong; a wait cannot
+distinguish "not yet" from "never", and a stale selector can turn a wait
+predicate truthy instantly — there is no failure signal to fall back on.
+
 ## Intent field
 
 `intent` defines what the step should accomplish; `action` and `locator` are
@@ -101,15 +121,20 @@ self-heal. (`WAIT_UNTIL` deliberately inverts this trade-off — see Waiting bel
   self-heal is worth. A `js:` predicate polls in-process with **no model calls**,
   so it wins even for DOM inspection.
   - Write a boolean-returning predicate against the Playwright `page`, e.g.
-    `js: (await page.locator('.spinner').count()) === 0`. A `document.querySelector(...)`
-    lookup also works — the compiler rewrites it to the equivalent `page.locator(...)` —
-    but prefer `page.locator` directly; other `document`/`window` APIs (e.g.
-    `document.readyState`) are not guaranteed to translate and will fail at runtime.
+    `js: (await page.locator('.spinner').count()) === 0`. There is **no**
+    `document`/`window` in scope — the predicate runs in the Node test context,
+    so `js: !document.querySelector('.spinner')` errors on every poll and the
+    wait silently burns the full timeout. For browser-side state, wrap it:
+    `js: await page.evaluate(() => document.readyState === 'complete')`.
     A Playwright `waitFor()` resolves to `undefined` and never registers as met —
     don't use it as the predicate.
   - Fall back to a natural-language condition only when the wait is genuinely
     semantic (no reliable selector, or the check can't be expressed as a short
     predicate). A `js:` wait does not self-heal, so keep the predicate simple and robust.
+- **A wait is not a gate.** `WAIT_UNTIL` never fails the test: when the timeout
+  expires, the step records a warning and the test continues. If correctness
+  depends on the condition ("the order confirmation appeared"), follow the wait
+  with a `VERIFY:` — that is what fails the test when the condition never held.
 
 Minimize explicit waits — browser actions, navigation, and assertions already
 include waiting. Don't add waits after ordinary page loads, clicks, form submits,
