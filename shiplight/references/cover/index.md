@@ -96,7 +96,7 @@ what was made. The two Shiplight producers are **two targets among several**:
 
 - `/shiplight create-yaml-tests` — deterministic Shiplight YAML E2E tests.
 - `/shiplight create-agent-verification` — coding-agent-driven verification for
-  live-environment checks (browser, API, DB, logs, cloud, telemetry).
+  live-environment checks (codified UI segments, API, DB, logs, cloud, telemetry).
 - The project's own unit / contract / integration / browser / mobile / load /
   migration / telemetry workflow for other kinds. For code-tied tests, author them
   inline or drive the base coding agent toward deep coverage on the highest-priority
@@ -109,8 +109,9 @@ already-set-up projects (so callers like speckit invoking coverage on
 existing projects are unaffected). Non-Shiplight formats skip this entirely.
 
 When an agent verification produces a report, record its `PASS`/`FAIL`/`BLOCKED`/
-`ABORTED` status and auditable artifacts in `test-report.md`. Text-only browser
-claims are not sufficient; require an auditable artifact for browser-driven cases.
+`ABORTED` status and auditable artifacts in `test-report.md`. Text-only UI claims
+are not sufficient; for cases with UI, require the codified YAML run artifacts
+(Shiplight report, trace, screenshots).
 Treat `ABORTED` as an orchestration interruption to rerun, not as product evidence.
 
 ## Workflow

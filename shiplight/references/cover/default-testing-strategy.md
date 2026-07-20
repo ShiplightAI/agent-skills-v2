@@ -24,7 +24,7 @@ deliberately.
 | **contract / api** | low–med | proves the public boundary (route, server action, authz, schema) | Apply to every boundary that matters. |
 | **integration** | med | cross-module + real side effects (DB, transactions, jobs, migrations, audit rows) | Prove state and invariant correctness wherever cheaper tests can't. |
 | **e2e (codified)** | med–high | full stack through the UI; deterministic; CI-gateable | **Ration.** Gate critical user journeys. |
-| **agent** | high | most thorough short of a human — drives the UI *and* reads browser console, API logs, and DB cross-layer, with judgment | **Ration hardest.** Use as key release gates, for behavior-only / live checks, and for exploration. |
+| **agent** | high | most thorough short of a human — judgment across layers: runs the case's codified UI segments and cross-checks API, DB, logs, and telemetry | **Ration hardest.** Use as key release gates, for behavior-only / live checks, and for exploration. |
 | **manual** | highest (human) | unlimited judgment | Last resort / un-automatable only. |
 
 Behavioral proof hardens along a ladder of rising determinism:

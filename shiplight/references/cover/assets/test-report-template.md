@@ -69,9 +69,9 @@ are optional and supplement, not replace, the behavior matrix above.
 - `<agent test path>` — Status: `<PASS/FAIL/BLOCKED/ABORTED>`. Evidence:
   `<report/screenshot/video/trace path or URL>`.
 
-Text-only browser claims are not sufficient; require an auditable artifact for
-browser-driven cases. Treat `ABORTED` as an orchestration interruption to rerun,
-not as product evidence.
+Text-only UI claims are not sufficient; for cases with UI, require the codified
+YAML run artifacts (Shiplight report, trace, screenshots). Treat `ABORTED` as an
+orchestration interruption to rerun, not as product evidence.
 
 ## Manual Verification Log
 

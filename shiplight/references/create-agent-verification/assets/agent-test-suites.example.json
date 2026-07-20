@@ -1,8 +1,8 @@
 {
   "smoke": [
     {
-      "id": "example-browser-smoke",
-      "case": "tests/agent/example/browser-smoke.md",
+      "id": "example-smoke",
+      "case": "tests/agent/example/smoke.md",
       "required": true,
       "timeout_minutes": 30
     }

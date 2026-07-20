@@ -1,10 +1,17 @@
 # Agent Test: <Short Name>
 
+<!-- Authoring note (delete when filling in): for a backend-only case, remove
+every UI-specific piece — the "UI is codified…" paragraph below, the "UI YAML
+evidence path" report bullet, the "UI (deterministic YAML)" section, and Task
+step 1. -->
+
 ## Instructions
 
 You are a testing agent for `<project/product name>`. Execute this case against
-the target environment using browser automation, terminal commands, database
-queries, logs, cloud APIs, telemetry, and repo context as needed.
+the target environment using terminal commands, database queries, logs, cloud
+APIs, telemetry, and repo context. When the case has deterministic UI, run the
+feature group's UI YAML (`tests/agent/<feature>/ui/`) instead of driving the
+browser yourself.
 
 Do not mark PASS without concrete evidence. Do not use production customer data
 unless this case explicitly says production synthetic data is allowed.
@@ -12,15 +19,16 @@ unless this case explicitly says production synthetic data is allowed.
 This case has two phases:
 
 1. Environment preflight: confirm the selected environment can actually execute
-   this case.
+   this case — including that the route, table, and component this case targets
+   still exist (a renamed or removed surface is a `BLOCKED`, not a fabricated fixture).
 2. Product verification: execute the feature checks and return PASS or FAIL.
 
 If environment preflight fails, do not run product verification. Report
 `Status: BLOCKED` with the concrete blocker, such as missing database access,
 missing log access, unavailable login/session bootstrap, unavailable fixture
-setup, missing production synthetic approval, app startup failure, or target URL
-unreachable. Once environment preflight is ready, product verification must
-return exactly PASS or FAIL. Do not return SKIPPED.
+setup, a superseded/removed target surface, missing production synthetic approval,
+app startup failure, or target URL unreachable. Once environment preflight is
+ready, product verification must return exactly PASS or FAIL. Do not return SKIPPED.
 
 Do not classify an external timeout, cancellation, or instruction to stop as a
 product result. If the orchestrator interrupts execution before this case has
@@ -31,9 +39,9 @@ report body, explain the orchestration interruption, and do not end the report
 with PASS, FAIL, or BLOCKED. Release gates should ignore ABORTED reports and
 rerun the case.
 
-When this case drives a browser, collect auditable evidence such as an HTML
-report, screenshot set, video, trace, or project-standard equivalent. Text-only
-claims are not enough for browser verification.
+UI is codified as Shiplight YAML in `./ui/` and run as a subprocess (see the UI
+section). Its Shiplight report, trace, and screenshots are the UI evidence —
+reference them; do not drive the browser to collect them.
 
 When the orchestrator provides `AGENT_VERIFICATION_REPORT_PATH`, write the
 report to that exact path. Otherwise, write the report to a timestamped path:
@@ -48,7 +56,7 @@ The report must include:
 - Evidence collected
 - Findings
 - Commands, queries, pages, dashboards, or logs inspected
-- Browser evidence path or URL (HTML report, screenshot set, video, or trace) when a browser was driven
+- UI YAML evidence path (Shiplight report, trace, or screenshots) for the UI segments run
 - Cleanup performed
 - Follow-up required
 
@@ -118,7 +126,7 @@ environment.
 - Web URL: `<staging-web-url>`
 - Admin URL: `<staging-admin-url>`
 - API URL: `<staging-api-url>`
-- Environment preflight command: `<command that proves DB/log/browser/fixture access>`
+- Environment preflight command: `<command that proves DB/log/session/fixture access>`
 - Fixture setup command: `<command that verifies or repairs fixtures>`
 - Required accounts: <exact emails>
 - Required organizations/data: <exact slugs/ids>
@@ -138,11 +146,15 @@ environment.
 Before product verification, prove the selected environment is ready:
 
 1. Confirm the target URLs are reachable.
-2. Confirm backend/database access works when required.
-3. Confirm log access works when logs are required evidence.
-4. Confirm browser login or session bootstrap works for required accounts.
-5. Run the fixture setup command for the selected environment.
-6. Confirm required fixtures exist and are safe to mutate.
+2. Confirm the route, table, and component this case targets still exist (walk
+   the route, grep the repo, check the schema). A renamed or removed surface is
+   `BLOCKED`, not a fabricated fixture.
+3. Confirm backend/database access works when required.
+4. Confirm log access works when logs are required evidence.
+5. Confirm login/session bootstrap works for required accounts (for UI cases,
+   the minted `storageState`).
+6. Run the fixture setup command for the selected environment.
+7. Confirm required fixtures exist and are safe to mutate.
 
 If any item fails, stop before product verification and write a report ending
 with `Status: BLOCKED`. The report must name the specific blocker.
@@ -162,19 +174,40 @@ otherwise:
 
 State cleanup expectations for every mutable fixture.
 
+## UI (deterministic YAML)
+
+Deterministic UI is codified in the feature group's shared embedded project
+`tests/agent/<feature>/ui/`. Do not drive the browser. Omit this section for
+backend-only cases.
+
+- Setup writes each role's `storageState` to `tests/agent/<feature>/.runtime/`
+  (Fixture Preparation), where the YAML's `use.storageState` points.
+- Run a segment: `cd tests/agent/<feature>/ui && npx shiplight test tests/<segment>.test.yaml`.
+  Never drive the browser as a fallback. If the segment could not execute
+  (unreachable URL, invalid or expired `storageState`, missing fixture), report
+  `Status: BLOCKED`. If it ran and a UI assertion failed on the target surface,
+  treat that as product evidence — investigate and weigh it toward `FAIL`.
+- Read `tests/agent/<feature>/.runtime/evidence.json` (`{ <captured values>, ui_checks: {...} }`).
+  The YAML asserts only structural UI invariants — judge data-specific values
+  (counts, contents) from the DB yourself. Use captured values for backend checks;
+  refer to secrets by prefix/id, never raw.
+
 ## Task
 
 Execute the verification steps:
 
-1. <step>
-2. <step>
-3. <step>
+1. Run setup (fixture mechanism + `storageState`), then the UI YAML segment(s) under
+   `tests/agent/<feature>/ui/tests/`; read `tests/agent/<feature>/.runtime/evidence.json`.
+   Skip this step for backend-only cases.
+2. <backend step — API/DB/audit/log check the agent performs>
+3. <backend step …>
+4. Cleanup.
 
 ## Suggested Checks
 
 Include concrete checks that make the agent less likely to guess:
 
-- Browser pages and states to inspect.
+- UI states asserted by the `./ui/` YAML segments (not driven by the agent).
 - API routes and expected status codes.
 - Database tables/rows to query.
 - Audit events to query.

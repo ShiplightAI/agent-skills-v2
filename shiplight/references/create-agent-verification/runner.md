@@ -25,7 +25,7 @@ fixtures, secrets, session bootstrap, CI wiring, and mutation policy.
 ```bash
 cp tests/agent/agent-test-suites.example.json tests/agent/agent-test-suites.json
 pnpm agent:verify --target local --suite smoke --project-name "<project name>"
-pnpm agent:verify --target local --case tests/agent/example/browser-smoke.md
+pnpm agent:verify --target local --case tests/agent/example/smoke.md
 ```
 
 ## Configuration
@@ -57,6 +57,8 @@ evidence.
 
 ## Evidence
 
-Browser-driven cases must produce auditable evidence (HTML report, screenshot
-set, video, trace, or project-standard equivalent). Text-only browser claims are
-not sufficient. See `_shared/evidence-and-report.md`.
+UI evidence comes from the case's codified Shiplight YAML runs (their report,
+trace, and screenshots) — the executing agent does not drive a browser to
+collect it. Text-only UI claims are not sufficient: reports must reference the
+YAML run artifacts alongside the backend evidence (queries, API responses,
+logs). See `_shared/evidence-and-report.md`.
