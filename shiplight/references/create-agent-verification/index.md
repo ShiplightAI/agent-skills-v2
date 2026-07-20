@@ -137,6 +137,16 @@ executing agent unlikely to guess:
   it. The md always contains: environment preflight, fixture setup, the backend
   checks (API, DB, audit, logs), investigation, and the verdict; plus running the
   UI YAML when the case has UI.
+- **Environment-portable, never local-only.** A case runs on whatever `--target` it is
+  given — never hardcode a host (`localhost`), a local token, or `Target: local`. Read
+  the target's URLs, credentials, database, and **evidence sources** from what the
+  harness provides for that target, because a check that only works locally has no
+  equivalent on a deployed one and will falsely block/fail there — e.g. tailing a local
+  dev-server log (a deployed target has a hosted log system instead), or a fixture that
+  writes through the checkout's own schema (a deployed target's DB may be on an older
+  migration). *How* the target's values reach the case and *how* a deployed target
+  exposes URLs/logs/DB are per-project specifics to work out — the rule here is only
+  that the case must not assume local.
 
 **Layout — one embedded UI project per feature group.** Cases that share a UI
 surface live in one directory and share its embedded project; a standalone case
