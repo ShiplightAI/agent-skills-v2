@@ -34,7 +34,7 @@ context (Node.js)** instead of asking the AI. The scope is always the same —
 | Code (`description:` + `js:`) | label only | statement block | test fails | no |
 | `VERIFY:` + `js:` | the assertion — AI fallback intent | one `expect()` assertion | AI re-checks the natural-language assertion | **yes** |
 | `IF:` / `WHILE:` `"js: ..."` | *(absent)* | single expression | a throw fails the test; falsy just takes the other branch / ends the loop | no |
-| `WAIT_UNTIL:` `"js: ..."` | *(absent)* | single expression | never fails — warning in the step result, test continues at timeout | no |
+| `WAIT_UNTIL:` + `js:` | the intent — label + regeneration source | single expression | never fails — warning in the step result, test continues at timeout | no at runtime; regenerate from intent when authoring |
 
 Why only VERIFY falls back to AI: fallback exists only where failure is
 detectable at runtime. An assertion throws when it is wrong; a wait cannot
@@ -112,15 +112,28 @@ self-heal. (`WAIT_UNTIL` deliberately inverts this trade-off — see Waiting bel
 ## Waiting
 
 - `WAIT:` is a fixed-duration pause. Use only for known delays.
-- `WAIT_UNTIL:` polls a condition until met or timed out, and supports the same
-  `js:` prefix as IF/WHILE — but **the DOM rule inverts here: prefer `js:`, and
-  DOM predicates are fine.** IF/WHILE avoid `js:` DOM checks to keep self-healing,
-  and can afford to: the condition runs once (IF) or per-iteration (WHILE), so an
-  AI check is cheap. A `WAIT_UNTIL` re-checks on *every poll*, so an AI condition
-  costs a model call per poll (up to ~10 per wait) — far more than the one-time
-  self-heal is worth. A `js:` predicate polls in-process with **no model calls**,
-  so it wins even for DOM inspection.
-  - Write a boolean-returning predicate against the Playwright `page`, e.g.
+- `WAIT_UNTIL:` polls a condition until met or timed out. **Always author the
+  intent + `js:` form**: keep the natural-language description of what the wait
+  is for in `WAIT_UNTIL:`, and attach the cheap predicate as a sibling `js:` key:
+
+  ```yaml
+  - WAIT_UNTIL: The dashboard has finished loading
+    js: "(await page.locator('.spinner').count()) === 0"
+    timeout_seconds: 10
+  ```
+
+  When `js:` is present it is polled exclusively, in-process, with **no model
+  calls** — there is no AI fallback (unlike VERIFY). The intent is what reports
+  show and what regenerates the predicate when the DOM drifts. Never author the
+  bare `WAIT_UNTIL: "js: ..."` prefix form (legacy, read-only), and never combine
+  the prefix form with a sibling `js:` (validation rejects it).
+  - **The DOM rule inverts here vs IF/WHILE: prefer `js:`, and DOM predicates are
+    fine.** IF/WHILE avoid `js:` DOM checks to keep self-healing, and can afford
+    to: the condition runs once (IF) or per-iteration (WHILE), so an AI check is
+    cheap. A `WAIT_UNTIL` re-checks on *every poll*, so an AI condition costs a
+    model call per poll (up to ~10 per wait) — far more than the one-time
+    self-heal is worth.
+  - Write a boolean-returning expression against the Playwright `page`, e.g.
     `js: (await page.locator('.spinner').count()) === 0`. There is **no**
     `document`/`window` in scope — the predicate runs in the Node test context,
     so `js: !document.querySelector('.spinner')` errors on every poll and the
@@ -128,9 +141,9 @@ self-heal. (`WAIT_UNTIL` deliberately inverts this trade-off — see Waiting bel
     `js: await page.evaluate(() => document.readyState === 'complete')`.
     A Playwright `waitFor()` resolves to `undefined` and never registers as met —
     don't use it as the predicate.
-  - Fall back to a natural-language condition only when the wait is genuinely
+  - Use a natural-language condition alone only when the wait is genuinely
     semantic (no reliable selector, or the check can't be expressed as a short
-    predicate). A `js:` wait does not self-heal, so keep the predicate simple and robust.
+    predicate).
 - **A wait is not a gate.** `WAIT_UNTIL` never fails the test: when the timeout
   expires, the step records a warning and the test continues. If correctness
   depends on the condition ("the order confirmation appeared"), follow the wait
