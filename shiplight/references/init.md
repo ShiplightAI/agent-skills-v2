@@ -97,5 +97,5 @@ Do not store raw secrets (`_shared/secrets.md`).
 
 ## Next
 
-Once initialized, author tests with `create-yaml-tests` /
-`create-agent-verification`, or let `cover` drive the full create-flow.
+Suggest per SKILL.md's "After a subcommand completes" table — typically `auth`
+when the app has login, else `cover` to drive the full create-flow.

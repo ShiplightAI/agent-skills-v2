@@ -112,3 +112,54 @@ Show this grouped menu when invoked bare or when clarifying.
   "from the last run", plural reporting) is `cloud` (Nova results); *repairing* a
   broken test ("my test is failing", "fix this") is `fix`. Ask if the phrasing
   doesn't say which.
+
+## After a subcommand completes (next-step suggestion)
+
+After a subcommand's final report, optionally append **one** next-step
+suggestion. Rules:
+
+- **Evidence-only.** A suggestion must be triggered by something already
+  observed during the run — the diff analyzed, the failure diagnosed, the
+  project state read. Never run extra analysis (a new git diff, file scan, or
+  browser session) just to decide a suggestion.
+- **Silence is the default.** No trigger from the table → no suggestion line at
+  all. Failure states mostly suggest nothing: the user's next step is fixing
+  the product, not another Shiplight command. Suggestions fire on success —
+  "you proved it works; now make that durable / continuous / visible."
+- **Gate on the nature of the change.** When the run started from a code change
+  that is backend-only or barely touches UI, suppress the browser-flavored
+  suggestions (`verify`, `create-yaml-tests`, `review design`); `cover` (picks
+  unit/contract/integration via its capability map) and
+  `create-agent-verification` (cross-layer live checks) are the useful pointers
+  there.
+- **One line, statement not question.** Format:
+  `Next: /shiplight <cmd> — <reason from this run>`. Never auto-run the
+  suggested command; never ask a blocking yes/no. The user decides.
+- **At most one suggestion** — two only when genuinely forked (e.g. `cover` vs
+  `create-yaml-tests` by scope).
+- **Skip entirely in CI / non-interactive mode**, and after `update` / `help`.
+
+| After | Trigger observed during the run | Suggest |
+|-------|--------------------------------|---------|
+| `init` | app has login/authed routes | `auth`; otherwise `cover` |
+| `auth` | invoked to unblock another command | resume that command; otherwise nothing |
+| `verify` | passed on a meaningful flow with no YAML test covering it | `cover` (feature-level) or `create-yaml-tests` (single narrow flow) — verify is ephemeral, lock it in |
+| `verify` | UI smells seen while driving: missing labels/roles, no `data-testid`s, brittle DOM, console warnings | `review design` (accessibility + testability) |
+| `verify` | check failed, or the change was trivial | nothing |
+| `fix` | diagnosis was **product change** and the change extends beyond the repaired tests | `cover <feature>` to refresh the testing-what spec |
+| `fix` | repeated **locator drift** / no stable semantic hooks | `review design` (testability) — root-cause the drift instead of re-fixing every sprint |
+| `fix` | repro came from a CI failure, or several tests shared one source | `cloud` to check blast radius / confirm the next run is green |
+| `fix` | diagnosis was an **app bug** | nothing — report the bug (`_shared/ground-truth.md`) |
+| `create-yaml-tests` | tests pass and no CI E2E workflow exists | `ci` |
+| `create-yaml-tests` | flow's confidence needs API/DB/log state the YAML can't reach | `create-agent-verification` |
+| `create-agent-verification` | case `PASS` on a now-stable path | `create-yaml-tests` (promote to deterministic) |
+| `create-agent-verification` | `BLOCKED` on login/session bootstrap | `auth` |
+| `cover` | produced Shiplight tests, no CI wiring | `ci` |
+| `cover` | report rows `BLOCKED` on auth/env | `auth` |
+| `review` | user fixed UI findings in-session | `verify` to confirm the fixes render |
+| `review` | high-severity findings without regression coverage | `cover` |
+| `ci` | workflow wired | push / open a PR to trigger it, then `cloud` for the first run's results |
+| `ci` | no tests exist yet | `cover` first (precondition, per `ci.md`) |
+| `cloud` | failing/flaky tests attributed `spec_issue` / drift | `fix` |
+| `cloud` | attribution dominated by `app_regression` | nothing to run — an app bug to report |
+| `cloud` | recorder sessions covering untested flows | `create-yaml-tests` from the recording |
