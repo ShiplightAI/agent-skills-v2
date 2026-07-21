@@ -8,11 +8,17 @@ Single source of truth for every agent (Claude Code, Cursor, Codex, and [40+ mor
 
 ## Prerequisite
 
-All subcommands depend on the [Shiplight MCP server](https://www.shiplight.ai). Install it once for your agent (see [Install](#install) below), or run:
+All subcommands depend on the [Shiplight MCP server](https://www.shiplight.ai) for browser control. Install it once for your agent (see [Install](#install) below), or run:
 
 ```bash
 npx add-mcp "npx -y @shiplightai/mcp@latest" -n shiplight --env PWDEBUG=console
 ```
+
+Test authoring — scaffolding, the YAML language spec, validation, and running
+tests — comes from the `shiplightai` CLI instead, installed into the test project
+by `/shiplight init`. The split is deliberate: the spec that defines a test and
+the transpiler that runs it ship in the same package at the same version, so
+they cannot disagree about what your YAML means.
 
 ## Usage
 

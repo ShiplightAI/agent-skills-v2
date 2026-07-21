@@ -31,5 +31,15 @@ install/enable it (see the repo README) and reconnect (`/mcp`), then stop.
 
 ## Resources
 
-When writing or repairing YAML, read the MCP resources before generating any
-YAML: `shiplight://yaml-test-spec` and `shiplight://schemas/action-entity`.
+Before generating any YAML, read the references:
+
+- `npx shiplight spec yaml` — the YAML language spec.
+- `npx shiplight spec actions` — the actions a statement's `action:` field can
+  name, with their YAML parameters (element-targeted actions take `locator:` /
+  `xpath:`, never `element_index`).
+- `shiplight://schemas/action-entity` — MCP resource: the actions `act` can
+  perform in a live session and the `locator` / `xpath` / `frame_path` payload
+  they return, which you embed into statements.
+
+Local `.test.yaml` files are written, validated, and run with `npx shiplight`
+commands.

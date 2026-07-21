@@ -17,8 +17,9 @@ and may drive this), `verify` (check a UI change with no failing test).
   `create-yaml-tests/test-design-guide.md` (what to assert)
 - The matching spec under `specs/tests/`; the YAML test `goal`, step `intent`s, and
   `VERIFY` assertions; related tests for the same page/feature (borrow working
-  locators instead of guessing); `shiplight://yaml-test-spec` and
-  `shiplight://schemas/action-entity`.
+  locators instead of guessing); `npx shiplight spec yaml`,
+  `npx shiplight spec actions` (YAML action parameters), and
+  `shiplight://schemas/action-entity` (live-session `act` payloads).
 - `knowledge/` notes for the failing area, environment, auth, data, and tooling.
 
 ## When to use
@@ -68,7 +69,7 @@ Before editing, identify why the update is needed — it determines the fix:
    Don't touch passing tests unless they share the same broken source. Keep ACTION
    locators and VERIFY `js:` caches current on edited steps, but don't churn
    unrelated caches.
-5. **Validate and rerun** — validate edited YAML with `validate_yaml_test`, then
+5. **Validate and rerun** — validate edited YAML with `npx shiplight transpile --strict`, then
    rerun the narrowest changed target. After batch fixes, rerun the original target
    once.
 6. **Reflect** — run the session-close reflection (`_shared/knowledge.md`); update

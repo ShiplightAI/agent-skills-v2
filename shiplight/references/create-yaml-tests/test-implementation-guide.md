@@ -1,13 +1,19 @@
 # YAML Authoring Reference
 
-YAML syntax and actions. YAML-family guide — also read by `fix`. Read the MCP
-resources first; they are the source of truth.
+YAML syntax and actions. YAML-family guide — also read by `fix`. Read the
+references below first; they are the source of truth.
 
 ## YAML format reference
 
-- `shiplight://yaml-test-spec` — the full YAML language spec (top-level keys,
+- `npx shiplight spec yaml` — the full YAML language spec (top-level keys,
   statement syntax).
-- `shiplight://schemas/action-entity` — the full list of actions and parameters.
+- `npx shiplight spec actions` — every action a statement's `action:` field can
+  name, with its parameters.
+- `shiplight://schemas/action-entity` — MCP resource: the actions `act` can
+  perform in a live session.
+
+A statement's `action:` accepts exactly what `spec actions` lists.
+`action-entity` describes `act` only and is never authority over YAML.
 
 ## Statement type selection
 
@@ -69,7 +75,7 @@ Describe the user goal, not DOM position or implementation detail.
 ## ACTION format
 
 Use structured ACTION format by default for supported actions. Read
-`shiplight://schemas/action-entity` before writing or changing actions.
+`npx shiplight spec actions` before writing or changing a statement's `action:`.
 
 ## VERIFY best practices
 

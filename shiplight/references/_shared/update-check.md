@@ -21,7 +21,11 @@ version was resolved on the day the project was scaffolded.
 4. If the update command fails, continue with the currently installed skill and
    mention the failure briefly.
 
-## 2. CLI version gate (every invocation)
+## 2. CLI version gate (every invocation except `init`)
+
+**Skip this section for `init`** — it runs before the project has a
+`package.json`, so there is no installed version to read. `init` scaffolds with
+`shiplightai@latest`, so no upgrade is needed afterwards either.
 
 The skills always run at latest, so the CLI has to as well — anything else is the
 drift this module exists to stop. Read both numbers:

@@ -16,8 +16,10 @@ Cross-repo building block: invoked by `cover` and by sibling repos as
 
 - `_shared/project-layout.md`, `_shared/ground-truth.md`, `_shared/knowledge.md`,
   `_shared/auth.md`, `_shared/secrets.md`
-- `_shared/mcp.md`, and the MCP resources **before writing any YAML**:
-  `shiplight://yaml-test-spec` and `shiplight://schemas/action-entity`
+- `_shared/mcp.md`, and **before writing any YAML**: `npx shiplight spec yaml`
+  (the YAML language spec), `npx shiplight spec actions` (YAML action
+  parameters), and the MCP resource `shiplight://schemas/action-entity` (the
+  actions `act` can perform in a live session)
 - This slice's guides: `test-design-guide.md` (what to test / structure) and
   `test-implementation-guide.md` (YAML syntax & actions)
 - Check `knowledge/` for notes relevant to the app area, target, auth, data, or
@@ -28,7 +30,7 @@ Cross-repo building block: invoked by `cover` and by sibling repos as
 - Keep YAML tests focused — one test verifies one logical journey or variant.
 - **Do not write YAML from imagination.** Walk the app in a browser first and
   capture real locators.
-- Validate YAML with `validate_yaml_test` after writing it.
+- Validate YAML with `npx shiplight transpile --strict` after writing it.
 - A spec may map to many smaller YAML tests; specs describe feature/journey-group
   confidence, YAML files are executable coverage.
 - Never store raw secrets (`_shared/secrets.md`).
@@ -91,7 +93,7 @@ write statements from memory — always walk the app first.
 
 ### 5. Validate and run
 
-1. Validate with `validate_yaml_test`.
+1. Validate with `npx shiplight transpile --strict`.
 2. Run the narrowest relevant command (usually one test file).
 3. If validation rejects too many draft statements, return to the browser and
    capture more locators.

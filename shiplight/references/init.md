@@ -20,14 +20,26 @@ the user to confirm before creating or moving files.
 
 ## 2. Scaffold
 
-Call the `scaffold_project` MCP tool against the project root — even if the
-directory already contains a repo, `.env`, or its own `package.json`. The tool
-writes any missing files and reports the rest under `files_needing_agent_merge`.
+Run `npx -y shiplightai@latest create . --json` from the project root — even if
+the directory already contains a repo, `.env`, or its own `package.json`. It
+writes any missing files and prints a single JSON object on stdout. Parse it:
+
+- `files_needing_agent_merge` — one entry per conflict; resolve every one (below).
+- `env_setup_state` — which `.env` situation you are in, and in particular
+  whether overwriting an existing `.env` is safe. Step 3 still decides *which*
+  credential to ask for.
+- `name_was_normalized` — the package name was rewritten; tell the user, and
+  offer `--name <name>`. JSON mode prints no notice, so this field is the only
+  signal.
+- `error` — the run failed and the object contains nothing else.
+
+Use the full `shiplightai@latest` form here — the CLI is not installed yet, so
+the project-local `shiplight` binary every later step uses does not exist.
 
 Do not pre-create empty directories — create them only when you have content to
 place in them.
 
-### Resolve scaffold_project conflicts
+### Resolve scaffold conflicts
 
 When the target was empty, `files_needing_agent_merge` is empty — proceed. When the
 user already had files, it contains one entry per conflict. For each entry: Read

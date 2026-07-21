@@ -154,7 +154,7 @@ owns its own. Never touch the project e2e suite or another group's project:
 
 ```text
 tests/agent/<feature>/
-  ui/                     # ONE embedded Shiplight project (scaffold_project) for the group
+  ui/                     # ONE embedded Shiplight project (shiplight create) for the group
     tests/<segment>.test.yaml
     templates/<shared>.yaml
   <case-a>.md             # multiple cases reuse ../ui and its evidence

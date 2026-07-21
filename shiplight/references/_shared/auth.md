@@ -169,7 +169,7 @@ if (!ok) throw new Error("login failed");
 ```
 
 > Inside YAML, the same capability is the `generate_2fa_code` action, which stores
-> the result in `$otp_code`; see `shiplight://schemas/action-entity`.
+> the result in `$otp_code`; see `npx shiplight spec actions`.
 
 ## File placement
 

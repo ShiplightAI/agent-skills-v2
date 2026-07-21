@@ -31,7 +31,7 @@ shiplight-report/      generated reports; do not edit
 Do not pre-create empty directories — create them only when you have content to
 place in them (e.g. don't create `templates/` until you have a template).
 
-> **Scaffolding** a new or existing repo (the `scaffold_project` MCP tool and its
+> **Scaffolding** a new or existing repo (`shiplight create` and its
 > conflict-merge handling) is the **`init`** subcommand's responsibility. If a
 > project isn't scaffolded yet, run `/shiplight init` first.
 
