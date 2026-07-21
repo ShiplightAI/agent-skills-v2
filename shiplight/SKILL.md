@@ -43,8 +43,11 @@ test".
 
 ## Shared layer
 
-- On every subcommand invocation (skip for `help`), run `references/_shared/update-check.md` once (daily
-  skill refresh), then identify the test project root.
+- On every subcommand invocation (skip for `help`), identify the test project
+  root, then run `references/_shared/update-check.md` once (daily skill refresh +
+  `shiplightai` CLI version gate). It can **halt** the run: a CLI behind the
+  latest published version stops the subcommand before it starts, and offers an
+  upgrade.
 - Each subcommand names the `references/_shared/` modules it needs (auth, mcp,
   evidence-and-report, project-layout, ground-truth, knowledge, secrets,
   vocabularies, test-spec-template). Read those before acting — they are the
@@ -57,7 +60,7 @@ Show this grouped menu when invoked bare or when clarifying.
 **Setup**
 - `init` — scaffold a Shiplight test project + write `specs/context.md`
 - `auth` — set up / repair login and saved storage state
-- `update` — refresh installed Shiplight skills
+- `update` — refresh installed Shiplight skills + the `shiplightai` CLI
 
 **Author**
 - `create-yaml-tests` — implement deterministic YAML E2E tests from a spec
@@ -86,7 +89,7 @@ Show this grouped menu when invoked bare or when clarifying.
 |-----------|--------------------|-----------|
 | `init` | set up shiplight, new test project, scaffold | `references/init.md` |
 | `auth` | log in, save session, storage state, authentication | `references/auth.md` |
-| `update` | self-update, upgrade skills, refresh skills | `references/update.md` |
+| `update` | self-update, upgrade skills, refresh skills, upgrade the shiplight cli, bump shiplightai, cli out of date | `references/update.md` |
 | `create-yaml-tests` | yaml test(s), create a yaml test, write a yaml/e2e test, deterministic test, e2e test, write a test | `references/create-yaml-tests/index.md` |
 | `create-agent-verification` | agent verification, create agent verification, verification script, repeatable agent check, live-env verification | `references/create-agent-verification/index.md` |
 | `cover` | coverage, test coverage, what's untested, coverage gaps, testing strategy, plan tests, write a spec, test plan, set up tests for my app, build tests, test this feature | `references/cover/index.md` |

@@ -34,7 +34,7 @@ One entry point routes to every workflow:
 |------------|---------|
 | `init` | Scaffold a Shiplight test project and write `specs/context.md` |
 | `auth` | Set up or repair login and saved storage state |
-| `update` | Refresh installed Shiplight skills |
+| `update` | Refresh installed Shiplight skills + the `shiplightai` CLI |
 
 ### Author
 
@@ -119,6 +119,10 @@ npx skills update
 ```
 
 Shiplight also runs an opportunistic daily update check. On a subcommand invocation, the skill uses `.shiplight-agent-skills-last-update` as a project-local attempt timestamp. On first use, if the file does not exist yet, the agent creates it and skips the update so a newly installed project does not pay for a second install. After that, the agent runs `npx -y skills@latest update -y` at most once every 24 hours. Treat this file as local cache and do not commit it.
+
+The same check compares the project's installed `shiplightai` against the latest published version (`npm view shiplightai version`). Since the skills themselves always run at latest, the CLI has to match: if the project is behind, the agent stops before the subcommand does any work and offers to upgrade. There is no soft warning — an advisory line buried in agent output gets ignored, and the project stays stale. Accepting the offer, or running `/shiplight update` directly, runs `npm install shiplightai@latest` and reports the version delta.
+
+Note that `npm install` on its own does **not** pick up new CLI releases: a `"shiplightai": "latest"` or `"^0.1.x"` spec is already satisfied by the version pinned in `package-lock.json`, so npm leaves it alone. Only an explicit `@latest` re-resolves the tag. Commit the resulting lockfile change — CI runs `npm ci`, which installs the lockfile verbatim.
 
 ## Links
 
