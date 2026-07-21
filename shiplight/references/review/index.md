@@ -32,7 +32,7 @@ Each row maps to a sibling reference file. Load it only when the domain is selec
 | security | `security.md` | auth/login changes, sensitive data, OWASP, headers/CORS/CSP, supply chain |
 | privacy | `privacy.md` | collects PII, tracking/analytics, consent banners, GDPR/CCPA |
 | compliance | `compliance.md` | regulated industry, audit prep, HIPAA/SOC 2/PCI-DSS/GDPR, payments or health data |
-| design | `design.md` | UI shipping without a designer, responsive, accessibility, typography, i18n |
+| design | `design.md` | UI shipping without a designer, responsive, accessibility, typography, i18n, testability |
 | resilience | `resilience.md` | error handling, network/API failures, empty/edge states, degradation |
 | performance | `performance.md` | slow pages, Core Web Vitals, bundle size, runtime/render perf |
 | seo | `seo.md` | public site, meta tags, structured data, crawlability, sitemaps |

@@ -1,6 +1,6 @@
 # Design Review
 
-Evaluate your application's visual quality and usability against established design standards. This review catches issues that typically require a trained designer's eye — responsive breakpoints, accessibility compliance, visual hierarchy, spacing consistency, and internationalization readiness.
+Evaluate your application's visual quality and usability against established design standards. This review catches issues that typically require a trained designer's eye — responsive breakpoints, accessibility compliance, visual hierarchy, spacing consistency, internationalization readiness, and testability (whether the page exposes the semantic hooks that make it addressable by both assistive tech and tests).
 
 ## When to use
 
@@ -104,6 +104,8 @@ Open a browser session with `new_session` using `record_evidence: true`. For eac
 
 **Browser validation:** Use `inspect_page` to extract the DOM. Run JavaScript via `act` to compute contrast ratios, check ARIA attributes, extract heading hierarchy. Use keyboard navigation (Tab, Enter, Escape) to test focus management.
 
+> The roles, accessible names, labels, and heading structure checked here are also what make a page robustly testable — the same markup lets a test target elements by meaning instead of brittle selectors. **Category F (TEST)** scores that payoff; treat missing accessible names as both an a11y and a testability finding.
+
 ### Category C: Visual Consistency (VIS)
 
 | Check ID | Check | Standard | Method |
@@ -144,6 +146,20 @@ Open a browser session with `new_session` using `record_evidence: true`. For eac
 
 **Browser validation:** Use JavaScript to modify `dir` attribute, inject longer text, change locale settings. Screenshot at each state.
 
+### Category F: Testability & Semantic Hooks (TEST)
+
+> **Principle — semantic markup is the addressability lever; `data-testid` is the last resort.** The same roles, accessible names, landmarks, and labels that make a page usable by assistive tech are what let a test target an element by *meaning* (`getByRole`, `getByLabel`, `getByText` scoped to a named region) instead of by brittle structure (`nth-child`, deep CSS, XPath) or a non-unique text match. Reaching for `data-testid` first is usually a smell: a testid is invisible to users and assistive tech, so it does **nothing** for accessibility and only papers over a missing accessible name. Use `data-testid` only when the target genuinely has no semantic identity to give it — and prefer fixing the semantics instead. A page that can only be tested via structural or testid selectors is a page that is also hard for assistive tech to navigate; testability and accessibility are the same lever.
+
+| Check ID | Check | Standard | Method |
+|----------|-------|----------|--------|
+| TEST-01 | Major regions are named landmarks | WCAG 1.3.1 / ARIA | Each significant section is `main`/`nav`/`header`/`footer`, or a `<section>`/`role="region"` with an **accessible name** (`aria-labelledby` on its heading, or `aria-label`). Try `getByRole('region'\|'main'\|'navigation', { name })`; flag any region reachable only by structural scoping. A bare `<section>` with no accessible name is **not** a landmark. |
+| TEST-02 | Interactive controls addressable by role + name | WCAG 4.1.2 | Every button/link/control resolves via `getByRole('button'\|'link', { name })`, not a CSS/nth/XPath selector. Try role locators for the page's key actions; flag controls with no accessible name (icon-only buttons missing `aria-label`). |
+| TEST-03 | Form fields addressable by label | WCAG 1.3.1 | Each input resolves via `getByLabel(...)` (a real `<label for>` or `aria-label`). Overlaps A11Y-04, viewed from the locator angle. |
+| TEST-04 | Repeated items disambiguate to one match | Robustness | For lists/tables/cards, a locator for a row's key field resolves to exactly **one** element — items carry unique accessible names or sit in a scoped, named container. Attempt to target a single item's field; flag strict-mode collisions where the same text matches twice (the classic being a value that also renders in a sidebar/header). |
+| TEST-05 | `data-testid` used only as a semantic fallback | Best practice | Scan for `data-testid`. Flag any that substitutes for a missing accessible name/label/role — the fix is the semantic hook, not the testid. Testids are acceptable only where no meaningful role/name exists. |
+
+**Browser validation:** For each key region and action in scope, try to locate it by role/label/name (`getByRole`, `getByLabel`, or `getByText` scoped to a named landmark). Where a locator is impossible (no accessible name) or ambiguous (multiple matches / strict-mode collision), record it — the remediation is a **semantic hook** (add the landmark's accessible name, the control's `aria-label`, the input's `<label>`), with `data-testid` only as a last resort. This is the same markup Category B checks, scored here for its testability payoff.
+
 ---
 
 ## Phase 4: Report
@@ -167,6 +183,7 @@ Generate a structured report saved to `shiplight/reports/design-review-{date}.md
 | Visual Consistency (VIS) | 8/10 | 1 medium |
 | Typography (TYP) | 9/10 | 1 low |
 | i18n Readiness (I18N) | 6/10 | 2 medium |
+| Testability (TEST) | 6/10 | 1 high, 2 medium |
 
 ## Findings
 
