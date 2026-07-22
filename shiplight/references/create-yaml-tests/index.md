@@ -30,7 +30,9 @@ Cross-repo building block: invoked by `cover` and by sibling repos as
 - Keep YAML tests focused — one test verifies one logical journey or variant.
 - **Do not write YAML from imagination.** Walk the app in a browser first and
   capture real locators.
-- Validate YAML with `npx shiplight transpile --strict` after writing it.
+- Validate YAML with `npx shiplight transpile --strict tests/<file>.test.yaml`
+  after writing it — pass the file(s) you wrote. Bare `--strict` gates every
+  test in the project.
 - A spec may map to many smaller YAML tests; specs describe feature/journey-group
   confidence, YAML files are executable coverage.
 - Never store raw secrets (`_shared/secrets.md`).
@@ -93,7 +95,8 @@ write statements from memory — always walk the app first.
 
 ### 5. Validate and run
 
-1. Validate with `npx shiplight transpile --strict`.
+1. Validate with `npx shiplight transpile --strict tests/<file>.test.yaml` (the
+   file(s) from step 4).
 2. Run the narrowest relevant command (usually one test file).
 3. If validation rejects too many draft statements, return to the browser and
    capture more locators.

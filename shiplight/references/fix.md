@@ -69,9 +69,9 @@ Before editing, identify why the update is needed — it determines the fix:
    Don't touch passing tests unless they share the same broken source. Keep ACTION
    locators and VERIFY `js:` caches current on edited steps, but don't churn
    unrelated caches.
-5. **Validate and rerun** — validate edited YAML with `npx shiplight transpile --strict`, then
-   rerun the narrowest changed target. After batch fixes, rerun the original target
-   once.
+5. **Validate and rerun** — validate the edited YAML with `npx shiplight transpile
+   --strict tests/<edited>.test.yaml`, then rerun the narrowest changed target.
+   After batch fixes, rerun the original target once.
 6. **Reflect** — run the session-close reflection (`_shared/knowledge.md`); update
    specs, `specs/context.md`, or `knowledge/` when the session produced durable
    learning or corrected stale assumptions.
