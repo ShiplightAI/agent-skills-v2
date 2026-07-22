@@ -12,6 +12,8 @@ bundle (`references/create-agent-verification/assets/`) into the repo:
 - `tests/agent/agent-test-template.md` — case authoring template
 - `tests/agent/agent-test-suites.example.json` — manifest example
 - `tests/agent/run-agent-verification.ts` — local runner/orchestrator
+- `tests/agent/agent-verification-types.ts` — shared timing types the runner
+  imports (required for typecheck)
 
 Each project owns its real `tests/agent/agent-test-suites.json`, case files,
 fixtures, secrets, session bootstrap, CI wiring, and mutation policy.

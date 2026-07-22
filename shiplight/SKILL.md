@@ -91,7 +91,7 @@ Show this grouped menu when invoked bare or when clarifying.
 | `auth` | log in, save session, storage state, authentication | `references/auth.md` |
 | `update` | self-update, upgrade skills, refresh skills, upgrade the shiplight cli, bump shiplightai, cli out of date | `references/update.md` |
 | `create-yaml-tests` | yaml test(s), create a yaml test, write a yaml/e2e test, deterministic test, e2e test, write a test | `references/create-yaml-tests/index.md` |
-| `create-agent-verification` | agent verification, create agent verification, verification script, repeatable agent check, live-env verification | `references/create-agent-verification/index.md` |
+| `create-agent-verification` | agent verification, create agent verification, verification script, repeatable agent check, live-env verification, full-stack test, cross-layer test, test the whole stack, drive the UI and check the backend/database, verify the backend state too, release smoke test, pre-release smoke | `references/create-agent-verification/index.md` |
 | `cover` | coverage, test coverage, what's untested, coverage gaps, testing strategy, plan tests, write a spec, test plan, set up tests for my app, build tests, test this feature | `references/cover/index.md` |
 | `fix` | failing test, triage, repair test, update test for product change | `references/fix.md` |
 | `verify` | screenshot, verify the change, check the UI, visual check | `references/verify.md` |
@@ -102,10 +102,14 @@ Show this grouped menu when invoked bare or when clarifying.
 
 ## Ambiguity notes
 
-- **"test" / "write a test"** → could be `create-yaml-tests` (deterministic) or
-  `create-agent-verification` (agent judgment). Default to `create-yaml-tests`
-  unless the user signals exploratory / judgment / live-env, but if unclear,
-  ask.
+- **"test" / "write a test"** → could be `create-yaml-tests` (deterministic, UI
+  focused) or `create-agent-verification` (spans UI **and** backend state). Default
+  to `create-yaml-tests` unless the user signals a core journey, backend/
+  cross-layer proof, release smoke, or live-env judgment — but if unclear, ask.
+- **"smoke test"** → ambiguous alone. A quick UI pass over key screens is
+  `create-yaml-tests`; a pre-release check that a core journey works **and** left
+  the right backend state is `create-agent-verification`. Ask which, unless the
+  user names a backend expectation or a release gate.
 - **"verify" / "verification"** → the *verb* (check a change now) is `verify`;
   *creating a reusable verification script* is `create-agent-verification`. The
   `create-` framing is the tell. Ask if the user's phrasing doesn't disambiguate.
@@ -154,8 +158,8 @@ suggestion. Rules:
 | `fix` | repro came from a CI failure, or several tests shared one source | `cloud` to check blast radius / confirm the next run is green |
 | `fix` | diagnosis was an **app bug** | nothing — report the bug (`_shared/ground-truth.md`) |
 | `create-yaml-tests` | tests pass and no CI E2E workflow exists | `ci` |
-| `create-yaml-tests` | flow's confidence needs API/DB/log state the YAML can't reach | `create-agent-verification` |
-| `create-agent-verification` | case `PASS` on a now-stable path | `create-yaml-tests` (promote to deterministic) |
+| `create-yaml-tests` | flow's confidence needs API/DB/log state better judged than asserted | `create-agent-verification` |
+| `create-agent-verification` | case `PASS` on a now-stable path **whose proof reduces to fixed conditions** | `create-yaml-tests` (promote to deterministic) — not when its worth is the judgment across evidence |
 | `create-agent-verification` | `BLOCKED` on login/session bootstrap | `auth` |
 | `cover` | produced Shiplight tests, no CI wiring | `ci` |
 | `cover` | report rows `BLOCKED` on auth/env | `auth` |

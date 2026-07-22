@@ -95,8 +95,9 @@ actually prove the check*. A unit test cannot prove a real-browser flow.
 what was made. The two Shiplight producers are **two targets among several**:
 
 - `/shiplight create-yaml-tests` — deterministic Shiplight YAML E2E tests.
-- `/shiplight create-agent-verification` — coding-agent-driven verification for
-  live-environment checks (codified UI segments, API, DB, logs, cloud, telemetry).
+- `/shiplight create-agent-verification` — drives the journey and judges the state
+  behind it in one artifact (codified UI segments, API, DB, logs, cloud,
+  telemetry). Choose it for core journeys and release smoke.
 - The project's own unit / contract / integration / browser / mobile / load /
   migration / telemetry workflow for other kinds. For code-tied tests, author them
   inline or drive the base coding agent toward deep coverage on the highest-priority

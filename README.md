@@ -47,7 +47,7 @@ One entry point routes to every workflow:
 | Subcommand | Purpose |
 |------------|---------|
 | `create-yaml-tests` | Implement deterministic YAML E2E tests from a spec — plan, scaffold, and write by walking through the app |
-| `create-agent-verification` | Create a reusable coding-agent-driven verification script that runs against a live environment (browser, API, DB, logs) with auditable PASS/FAIL reports |
+| `create-agent-verification` | Create a reusable verification that drives a full user journey and judges the state behind it (API, DB, logs) in one artifact — for smoke-testing core journeys before a release |
 | `cover` | Decide the test format and effort, plan, drive the producers, and report what was tested and by what type |
 
 ### Maintain

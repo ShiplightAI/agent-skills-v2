@@ -9,13 +9,20 @@ judgment plus the evidence it collects — not fixed deterministic assertions. T
 output is a report path, a final `PASS`/`FAIL`/`BLOCKED`/`ABORTED` status, and the
 evidence artifacts, for whatever invoked it to consume.
 
+**The power is coverage, not flexibility.** This is the only format that drives the
+UI *and* judges the state behind it — across whatever tools the evidence needs,
+in one artifact. A journey that renders "Order confirmed" while the order row,
+the payment webhook, and the audit entry disagree with each other is caught by
+weighing them together; no single fixed assertion frames that question. That
+makes it the right format for smoke-testing core user journeys before a release.
+
 Contrast with the siblings:
 - `verify` is the dev-time **act** (check a change now, ephemeral, the main agent
   drives the browser).
 - `create-agent-verification` produces a **durable, re-runnable artifact** — the
   `create-` is the tell.
-- `create-yaml-tests` produces **deterministic** codified assertions; this
-  produces **judgment-based** verification.
+- `create-yaml-tests` produces **deterministic** codified assertions with fixed
+  conditions; this produces **judgment-based** verification spanning UI and backend.
 
 > **Naming note.** The skill is "verification" (outcome-oriented), but the
 > on-disk conventions — `tests/agent/`, `agent-test-suites.json`,
@@ -33,10 +40,12 @@ Contrast with the siblings:
 
 ## When to use
 
-When verification needs flexible, tool-driven judgment across UI, API, database,
-logs, files, network, or live-environment state, and a deterministic test would
-be premature, brittle, too expensive, or too narrow. Especially:
+**Primary — cross-layer proof.** Reach for this whenever confidence requires the
+UI outcome *and* the state it should have changed:
 
+- Core user journeys that must not ship broken — signup, login, checkout,
+  payment, provisioning, anything touching money or data integrity. Smoke these
+  before a release and after a deploy to staging or production.
 - Flows whose confidence requires judgment across layers: UI outcomes (proven by
   the case's codified YAML segments) cross-checked against API, DB, audit, and
   log state. For purely-UI evidence with no cross-layer judgment, prefer
@@ -45,17 +54,23 @@ be premature, brittle, too expensive, or too narrow. Especially:
   inspection.
 - Full-stack flows crossing frontend, backend, storage, jobs, external mocks,
   and cleanup.
-- Exploratory regression checks before a stable path is converted into a
-  deterministic test.
+
+**Secondary — surfaces that move too fast to codify.** Also legitimate when a
+deterministic test would be premature, brittle, or too narrow, because the surface
+still changes often enough that codified assertions would need constant repair.
 
 ## When NOT to use
 
-- When a deterministic unit, contract, integration, or YAML E2E test is the
-  cheaper, more durable proof — use `create-yaml-tests` or the standard format.
-  Prefer converting high-value stable agent flows into deterministic tests once
-  the path stabilizes.
+- When the evidence is purely UI and the path is stable — a YAML E2E test is
+  cheaper, faster, and belongs on every PR. Same for logic provable by a unit,
+  contract, or integration test.
 - When no live environment, access, or fixtures are available — record the
   blocker rather than authoring an unrunnable case.
+
+**Do not migrate a case to a deterministic test merely because its path
+stabilized.** A stable checkout is precisely what should stay covered end to end
+before a release. Convert only when the proof reduces to fixed conditions a YAML
+test can assert — not when its worth is the judgment across evidence.
 
 ## Project layout
 
@@ -87,6 +102,8 @@ proof, scaffold on demand by copying this slice's bundled starters
 - `assets/agent-test-template.md` → `tests/agent/agent-test-template.md`
 - `assets/agent-test-suites.example.json` → `tests/agent/agent-test-suites.example.json`
 - `assets/run-agent-verification.ts` → `tests/agent/run-agent-verification.ts`
+- `assets/agent-verification-types.ts` → `tests/agent/agent-verification-types.ts`
+  (imported by the runner — omit it and typecheck fails with TS2307)
 
 Copy only when a project actually adopts agent verification; do not pre-seed repos
 that have none. Then create a real manifest from the example:
