@@ -272,6 +272,8 @@ Shared query params (each endpoint uses the subset it needs):
 | `GET /v1/analytics/attribution/trend` | Failure category counts over time | `[{ date, app_regression, spec_issue, test_data, infra_flake, unknown }]` |
 | `GET /v1/analytics/attribution/repos` | Repos that have classification data | `["org/repo", …]` |
 | `GET /v1/analytics/attribution/branches` | Branches that have classification data (accepts `repo` to scope) | `["main", …]` |
+| `GET /v1/analytics/usage` | LLM + compute usage and cost for the window, with optimization hints. **`repo`/`branch`/`bucket` do not apply** (org-wide only). | `{ testRuns, testCount, tokensTotal, billedMicrocents, computeBilledMicrocents, tokensPerTest, llmCallsPerTest, cacheHitRate, healRate, byOperation[], hints[], compute, byModel[], byModelTier[] }` — see notes below |
+| `GET /v1/analytics/compute/jobs` | Per-job runner rows keyed by GitHub `workflowJobId`, for joining against the CI provider's own per-step timings. Honors `repo`/`branch`; paginated via `limit` (max `200`) + `cursor`. | `{ jobs: [{ workflowRunId, workflowJobId, workflowRunAttempt, repo, headSha, headRef, runnerLabel, vcpus, vmMinutes, startedAt, completedAt }], nextCursor }` |
 
 Example — `GET /v1/analytics/tests/failing`:
 
@@ -288,6 +290,57 @@ Example — `GET /v1/analytics/tests/failing`:
     "totalExecutions": 50
   }
 ]
+```
+
+#### `GET /v1/analytics/usage` — usage, cost, and optimization levers
+
+The one endpoint that surfaces **what your testing costs and how to cut it**. All
+money is in **microcents** (`1_000_000` = $1.00) as strings (they exceed a JS
+number), and is the **customer price** — never a provider or internal rate. Token
+counts are numbers. Nested breakdowns to reason over:
+
+- **`byOperation[]`** — `{ operation, calls, inputTokens, outputTokens, thinkingTokens, cacheReadTokens, totalTokens }`. Usage per step type (`action`, `verify_ai`, `evaluate_if` / `evaluate_while` / `evaluate_wait_until`, …). The lever: if `evaluate_wait_until` dominates, that AI-polling step is your token sink — convert it to a deterministic wait or a tighter condition.
+- **`byModel[]`** — usage per `{ provider, model, routing }`: `{ …, pricingTier, calls, …tokenCounts }`. Covers **both** proxied and BYOK traffic. `pricingTier` (`lite`/`standard`/`pro`) is set only on `routing: "proxy"` rows and is `null` for `byok` / `custom_endpoint`. **No cost field** — this is the usage view. The lever: if an expensive model carries most tokens, move that operation to a cheaper one.
+- **`byModelTier[]`** — `{ tier, billedTokens, billedMicrocents }`, **proxy billing only**; empty for a pure-BYOK org. The lever: shows whether spend concentrates in the expensive tier. Sourced live from the billing ledger, so it will **not** sum exactly to the headline `billedMicrocents` (a day-truncated rollup) — use it for the tier *distribution*, the headline for the total.
+- **`compute`** — the machine plane: `{ measurements, ratios, hints }` covering runner VM minutes and cost, tests-per-job, and achieved concurrency, with a hint when runners are oversized for the parallelism achieved. `null` for orgs not on hosted runners.
+- **`hints[]`** — `{ code, message }` optimization suggestions computed from the same numbers in the response.
+
+`billedMicrocents` is `null` for a BYOK-only org and for an empty window. `byModel` /
+`compute` are runner-reported and can under-count if a run never uploaded its usage
+summary; `byModelTier` (the billing ledger) is always complete. To attribute a job's
+setup vs. test time, page `GET /v1/analytics/compute/jobs` and join each
+`workflowJobId` against `GET /repos/{owner}/{repo}/actions/jobs/{job_id}` on GitHub.
+
+```bash
+curl -H "Authorization: Bearer $SHIPLIGHT_API_TOKEN" \
+  "$SHIPLIGHT_API_URL/v1/analytics/usage?from=2026-06-01T00:00:00Z&to=2026-07-01T00:00:00Z"
+```
+
+```json
+{
+  "testRuns": 100,
+  "testCount": 5000,
+  "tokensTotal": 50000000,
+  "billedMicrocents": "1200000000",
+  "computeBilledMicrocents": "300000000",
+  "tokensPerTest": 10000,
+  "llmCallsPerTest": 5,
+  "cacheHitRate": null,
+  "byOperation": [
+    { "operation": "evaluate_wait_until", "calls": 1500, "totalTokens": 12000000 }
+  ],
+  "byModel": [
+    { "provider": "anthropic", "model": "claude-sonnet-5", "routing": "proxy", "pricingTier": "standard", "calls": 800, "totalTokens": 6000000 }
+  ],
+  "byModelTier": [
+    { "tier": "pro", "billedTokens": 900000000, "billedMicrocents": "600000000" }
+  ],
+  "compute": {
+    "ratios": { "concurrentTestsPerVmMinute": 1.6, "coreUtilization": 0.12 },
+    "hints": [{ "code": "oversized_runner", "message": "Runners average 16 vCPUs but run ~1.6 tests at a time." }]
+  },
+  "hints": []
+}
 ```
 
 ### Recorder Sessions (browser screen recordings)
