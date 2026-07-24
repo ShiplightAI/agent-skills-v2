@@ -8,7 +8,7 @@ subcommand is how the user files and checks from here.
 Sub-verbs (match from context; default is filing):
 
 - *(default)* — file a ticket
-- `status [SUP-…]` — list the org's tickets, or show one ticket's thread
+- `status [SUP-…]` — list the caller's accessible tickets, or show one ticket's thread
 - `reply SUP-… <message>` — answer support on an open ticket
 - `close SUP-…` — close a ticket
 
@@ -98,7 +98,9 @@ available, ask the user for their Shiplight API token; **ask before writing
 ## Status / reply / close
 
 ```bash
-# List the org's tickets (filter: ?status=open|waiting_on_user|resolved|closed)
+# List tickets (filter: ?status=open|waiting_on_user|resolved|closed)
+# Access is per-caller: a ticket's designated contacts (active org members), or
+# the filing token for token-only callers — not the whole org.
 curl -H "Authorization: Bearer $SHIPLIGHT_API_TOKEN" \
   "$SHIPLIGHT_API_URL/v1/support-tickets"
 
