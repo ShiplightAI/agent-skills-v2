@@ -1,6 +1,6 @@
 ---
 name: shiplight
-description: "Shiplight QA toolkit — the single entry point for all Shiplight test/QA work. Use ONLY when the user explicitly says 'shiplight' (e.g. 'write a shiplight test', 'use shiplight to verify X', 'shiplight cover') or invokes /shiplight. Routes to subcommands: init, auth, update, create-yaml-tests, create-agent-verification, cover, fix, verify, review, ci, cloud, help."
+description: "Shiplight QA toolkit — the single entry point for all Shiplight test/QA work. Use ONLY when the user explicitly says 'shiplight' (e.g. 'write a shiplight test', 'use shiplight to verify X', 'shiplight cover') or invokes /shiplight. Routes to subcommands: init, auth, update, create-yaml-tests, create-agent-verification, cover, fix, verify, review, ci, cloud, support, help."
 ---
 
 # Shiplight
@@ -43,7 +43,7 @@ test".
 
 ## Shared layer
 
-- On every subcommand invocation (skip for `help`), identify the test project
+- On every subcommand invocation (skip for `help` and `support`), identify the test project
   root, then run `references/_shared/update-check.md` once (daily skill refresh +
   `shiplightai` CLI version gate). It can **halt** the run: a CLI behind the
   latest published version stops the subcommand before it starts, and offers an
@@ -82,6 +82,10 @@ Show this grouped menu when invoked bare or when clarifying.
 
 **Help**
 - `help` — list subcommands, or `help <subcommand>` for details (does not execute)
+- `support` — get human help: file a support ticket with session diagnostics, check replies
+
+End the menu with one footer line:
+`Stuck? /shiplight support reaches a human — the ticket drafts itself from this session.`
 
 ## Dispatch table
 
@@ -98,6 +102,7 @@ Show this grouped menu when invoked bare or when clarifying.
 | `review` | security review, review my app, accessibility, privacy, performance, seo | `references/review/index.md` |
 | `ci` | github actions, ci setup, pipeline | `references/ci.md` |
 | `cloud` | cloud results, test run results, failing tests, flaky tests, ci results, download artifacts, test health, pass rate, pass-rate/run trend, slowest tests, flakiest tests, failure attribution, failure breakdown, analytics | `references/cloud/index.md` |
+| `support` | I'm stuck, contact support, talk to a human, human help, shiplight is broken, report a shiplight bug, file a ticket, support ticket, ticket status | `references/support.md` |
 | `help` | what can shiplight do, list commands, usage, `?` | `references/help.md` |
 
 ## Ambiguity notes
@@ -119,11 +124,15 @@ Show this grouped menu when invoked bare or when clarifying.
   "from the last run", plural reporting) is `cloud` (Nova results); *repairing* a
   broken test ("my test is failing", "fix this") is `fix`. Ask if the phrasing
   doesn't say which.
+- **"report a bug" / "X is broken"** → depends on *what* is broken. The user's
+  app misbehaving is ground truth to report (`_shared/ground-truth.md`), not a
+  subcommand; Shiplight itself misbehaving (skill, CLI, cloud API) is
+  `support`. Ask if unclear which one the user means.
 
-## After a subcommand completes (next-step suggestion)
+## After a subcommand completes or aborts (next-step suggestion)
 
-After a subcommand's final report, optionally append **one** next-step
-suggestion. Rules:
+After a subcommand's final report — including the report of an aborted run —
+optionally append **one** next-step suggestion. Rules:
 
 - **Evidence-only.** A suggestion must be triggered by something already
   observed during the run — the diff analyzed, the failure diagnosed, the
@@ -132,7 +141,9 @@ suggestion. Rules:
 - **Silence is the default.** No trigger from the table → no suggestion line at
   all. Failure states mostly suggest nothing: the user's next step is fixing
   the product, not another Shiplight command. Suggestions fire on success —
-  "you proved it works; now make that durable / continuous / visible."
+  "you proved it works; now make that durable / continuous / visible." The one
+  failure that does fire is the **Shiplight-side** failure row (`support`), and
+  it fires wherever the run stops — a mid-run abort report counts.
 - **Gate on the nature of the change.** When the run started from a code change
   that is backend-only or barely touches UI, suppress the browser-flavored
   suggestions (`verify`, `create-yaml-tests`, `review design`); `cover` (picks
@@ -144,7 +155,8 @@ suggestion. Rules:
   suggested command; never ask a blocking yes/no. The user decides.
 - **At most one suggestion** — two only when genuinely forked (e.g. `cover` vs
   `create-yaml-tests` by scope).
-- **Skip entirely in CI / non-interactive mode**, and after `update` / `help`.
+- **Skip entirely in CI / non-interactive mode**, and after `update` / `help` /
+  `support`.
 
 | After | Trigger observed during the run | Suggest |
 |-------|--------------------------------|---------|
@@ -170,3 +182,4 @@ suggestion. Rules:
 | `cloud` | failing/flaky tests attributed `spec_issue` / drift | `fix` |
 | `cloud` | attribution dominated by `app_regression` | nothing to run — an app bug to report |
 | `cloud` | recorder sessions covering untested flows | `create-yaml-tests` from the recording |
+| any | the run stopped on a **Shiplight-side** failure with no known fix — CLI crash, unexplained Shiplight API error, or the same step failing twice identically | `support` — the diagnostics for a ticket are already in this session |
