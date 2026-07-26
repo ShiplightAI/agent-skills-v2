@@ -251,16 +251,33 @@ Shared query params (each endpoint uses the subset it needs):
 | `repo` | string | Exact match on `org/repo`. Omit for org-wide. |
 | `branch` | string | Exact match on branch |
 | `from` | string | ISO timestamp, inclusive. Defaults to `now - 7 days` |
-| `to` | string | ISO timestamp, exclusive. Defaults to `now` |
+| `to` | string | ISO timestamp, exclusive. Defaults to `now`. Must be ≥ `from`, and `to - from` must not exceed **366 days** — both are `400`, not a clamp |
 | `bucket` | string | `day` \| `week` \| `month` — summary + trends. Default `day` |
 | `limit` | number | `1`–`500` — rankings. Default `20` |
 | `minExecutions` | number | Min executions to include — failing/flaky. Default `5` |
 | `sortBy` | string | `p50` \| `p95` \| `executions` — slowest. Default `p50` |
-| `sortOrder` | string | `asc` \| `desc` — slowest. Default `desc` |
+| `sortOrder` | string | `asc` \| `desc` — slowest + costliest. Default `desc` |
+
+**Units.** This surface carries two rate scales and two money units. Reading a
+field against the wrong one is the easiest way to be wrong by 100x or 1,000,000x:
+
+- **Percentages, `0`–`100`, one decimal.** `runPassRate` / `testPassRate` on
+  `summary`, and `passRate` / `flakeRate` on `trends/*`, `tests/failing`,
+  `tests/flaky`. `80` means 80%.
+- **Fractions, `0`–`1`.** `cacheHitRate` / `healRate` on `usage` and
+  `runs/{runId}/usage`, and every ratio under `compute.ratios`. `0.12` means 12%.
+- **Microcents as strings** (`1_000_000` = $1.00; they exceed a JS number). Every
+  `*Microcents` field.
+- **Formatted USD strings.** `runs/{runId}/results/{resultId}/usage` alone prices
+  in `estimatedCostUsd` (e.g. `"0.0042"`) — dollars, not microcents. It pairs with
+  `isPartialCost`, true when that figure covers only part of `totalTokens`.
+
+All money is the **customer price** — never a provider or internal rate. Token and
+call counts are plain numbers.
 
 | Endpoint | Description | Returns |
 |----------|-------------|---------|
-| `GET /v1/analytics/summary` | Headline run + test pass rates and totals for the window | `{ runPassRate, testPassRate, totalRuns, decidedRuns, totalTestExecutions, decidedTestExecutions }` — rates are **percentages (0–100)**, e.g. `15` means 15%, not 1500% |
+| `GET /v1/analytics/summary` | Headline run + test pass rates and totals for the window | `{ runPassRate, testPassRate, totalRuns, decidedRuns, totalTestExecutions, decidedTestExecutions }` |
 | `GET /v1/analytics/trends/pass-rate` | Run pass rate over time | `[{ date, passRate, totalRuns, passedRuns, failedRuns }]` |
 | `GET /v1/analytics/trends/run-status` | Passed vs failed run counts over time | `[{ date, passedRuns, failedRuns, totalRuns, passRate }]` |
 | `GET /v1/analytics/trends/test-results` | Test-result counts (passed/flaky/failed/skipped) over time | `[{ date, passed, flaky, failed, skipped, total, passRate }]` |
@@ -268,15 +285,15 @@ Shared query params (each endpoint uses the subset it needs):
 | `GET /v1/analytics/tests/failing` | Tests ranked by failure rate | `[{ file, testName, passedCount, flakyCount, failedCount, passRate, flakeRate, totalExecutions }]` |
 | `GET /v1/analytics/tests/flaky` | Tests ranked by flakiness | same shape as `tests/failing` |
 | `GET /v1/analytics/tests/slowest` | Tests ranked by duration (p50/p95) | `[{ file, testName, p50Ms, p95Ms, executionCount }]` |
-| `GET /v1/analytics/tests/costliest` | Tests ranked by LLM usage — which tests drive token spend. `sortBy` is `tokens` \| `calls` \| `avgTokens` (default `tokens`); the duration route's `sortBy` values are rejected here. | `[{ file, testName, executionCount, reportedExecutions, totalTokens, totalCalls, avgTokens, avgCalls }]` — see the coverage note below |
+| `GET /v1/analytics/tests/costliest` | Tests ranked by LLM usage — which tests drive token spend. `sortBy` is `tokens` \| `calls` \| `avgTokens` (default `tokens`); the duration route's `sortBy` values are rejected here. | `[{ file, testName, executionCount, reportedExecutions, reportedTokenExecutions, reportedCallExecutions, totalTokens, totalCalls, avgTokens, avgCalls }]` — see the coverage note below |
 | `GET /v1/analytics/attribution/summary` | Failure counts by cause category | `{ classifiedFailures, byCategory: {…}, everIngested }` — see the attribution note below |
 | `GET /v1/analytics/attribution/trend` | Failure category counts over time | `[{ date, app_regression, spec_issue, test_data, infra_flake, unknown }]` |
 | `GET /v1/analytics/attribution/repos` | Repos that have classification data | `["org/repo", …]` |
 | `GET /v1/analytics/attribution/branches` | Branches that have classification data (accepts `repo` to scope) | `["main", …]` |
-| `GET /v1/analytics/usage` | LLM + compute usage and cost for the window, with optimization hints. Org-wide only — **`repo`/`branch` are rejected with `400`**, because billed cost carries no repo dimension and org-wide totals under a repo filter would misattribute spend. | `{ testRuns, testCount, tokensTotal, billedMicrocents, computeBilledMicrocents, tokensPerTest, llmCallsPerTest, avgRunDurationSec, avgTestDurationSec, cacheHitRate, healRate, byOperation[], hints[], compute, byModel[], byModelTier[], windowPrecision }` — see notes below |
+| `GET /v1/analytics/usage` | LLM + compute usage and cost for the window, with optimization hints. Org-wide only — **`repo`/`branch` are rejected with `400`**, because billed cost carries no repo dimension and org-wide totals under a repo filter would misattribute spend. | `{ window: { from, to }, testRuns, testCount, tokensTotal, billedMicrocents, computeBilledMicrocents, tokensPerTest, llmCallsPerTest, avgRunDurationSec, avgTestDurationSec, cacheHitRate, healRate, byOperation[], hints[], compute, byModel[], byModelTier[], windowPrecision }` — see notes below |
 | `GET /v1/analytics/runs/{runId}/usage` | LLM usage + estimated cost for ONE run, with the per-operation breakdown. Database-backed, so it outlives the run's artifacts. | `{ runId, llmCalls, tokensTotal, estimatedCostMicrocents, cacheHitRate, healRate, cache, byOperation[], hints[] }` |
-| `GET /v1/analytics/runs/{runId}/results/{resultId}/usage` | LLM usage + priced cost for ONE test result, per attempt and per step. Read from the result's report artifact, so it disappears when that artifact expires. | `{ testResultId, reported, segments: [{ attempt, outcome, total, steps[], byOperation[] }], total, byOperation }` |
-| `GET /v1/analytics/compute/jobs` | Per-job runner rows keyed by GitHub `workflowJobId`. Carries per-job test attribution, so setup-vs-test share needs no GitHub call. Honors `repo`/`branch`; paginated via `limit` (max `200`) + `cursor`. | `{ jobs: [{ workflowRunId, workflowJobId, workflowRunAttempt, repo, headSha, headRef, runnerLabel, vcpus, vmMinutes, startedAt, completedAt, billed, testCount, testExecutionMinutes }], nextCursor }` |
+| `GET /v1/analytics/runs/{runId}/results/{resultId}/usage` | LLM usage + priced cost for ONE test result, per attempt and per step. | `{ testResultId, source, reported, segments: [{ attempt, outcome, total, steps[], byOperation[] }], byOperation[], total }` — `source` is `artifact` \| `totals-only` \| `none`; see the note below. `413` when the artifact is too large to parse |
+| `GET /v1/analytics/compute/jobs` | Per-job runner rows keyed by GitHub `workflowJobId`. Add `includeTests=1` for per-job test attribution, so setup-vs-test share needs no GitHub call. Honors `repo`/`branch`; paginated via `limit` (default `50`, max `200`) + `cursor`. | `{ jobs: [{ workflowRunId, workflowJobId, workflowRunAttempt, repo, headSha, headRef, runnerLabel, vcpus, vmMinutes, startedAt, completedAt, billed, testCount, testExecutionMinutes }], nextCursor }` — `testCount`/`testExecutionMinutes` are `null` unless `includeTests=1` |
 
 Example — `GET /v1/analytics/tests/failing`:
 
@@ -288,48 +305,53 @@ Example — `GET /v1/analytics/tests/failing`:
     "passedCount": 40,
     "flakyCount": 2,
     "failedCount": 8,
-    "passRate": 0.8,
-    "flakeRate": 0.04,
+    "passRate": 80,
+    "flakeRate": 4,
     "totalExecutions": 50
   }
 ]
 ```
 
-#### Window precision — read this before quoting any cost figure
+#### `windowPrecision`
 
-`/v1/analytics/usage` returns **`windowPrecision`**, and it changes what the money
-means:
+Always `"exact"` on this API: `tokensTotal`, `billedMicrocents` and
+`computeBilledMicrocents` cover your precise `[from, to)`. The web Usage page reads a
+`"daily"` rollup instead — it credits a day the window merely clips, drops the
+in-progress day, and returns **zero** for a window spanning no midnight — so figures
+quoted from the two surfaces will not match.
 
-- **`"exact"`** — `tokensTotal`, `billedMicrocents`, and `computeBilledMicrocents`
-  are read from the billing ledger on your precise `[from, to)`. This is what the
-  API returns.
-- **`"daily"`** — those three come from a day-granular rollup that truncates BOTH
-  bounds to whole days. A window is credited a day it merely clips, the
-  in-progress current day is dropped, and **a window spanning no midnight returns
-  zero**. Other surfaces (the web Usage page) read this mode.
+Exact does not mean every column agrees: money is windowed on the ledger's
+`usage_at`, runner jobs on dispatch `created_at`, tests on `start_time`. A run at a
+window edge lands in one aggregate and not another. Prefer a week or more when a
+ratio has to be right.
 
-Everything else in the payload — `testRuns`, `testCount`, the `compute` block —
-is always windowed on exact timestamps. Do not compare a cost figure against a
-run count and assume they cover the same span unless `windowPrecision` is
-`"exact"`.
+#### Per-result usage degrades as artifacts age
+
+`runs/{runId}/results/{resultId}/usage` reports `source`:
+
+- `artifact` — full per-attempt, per-step detail.
+- `totals-only` — the artifact is gone (or was never uploaded); `total` still comes
+  from the durable per-test columns, `segments` and `byOperation` are empty.
+- `none` — nothing was ever recorded.
+
+The response **shape is identical in all three**, so read `total` and map
+`byOperation` without branching first. `total` is a zeroed object, never null.
 
 #### Attribution is customer-fed, not computed
 
-`/v1/analytics/attribution/*` reads failure classifications that **you ingest**
-via `POST /v1/test-classifications`. Nothing in the product produces them, so an
-org that never wired that up returns all zeros forever — which is
-indistinguishable from "nothing failed" on the counts alone. Read
-**`everIngested`**: `false` means no classification has ever been ingested for
-this org (go wire it up), `true` with zero counts means the window genuinely had
-no classified failures.
+`/v1/analytics/attribution/*` reads classifications **you ingest** via
+`POST /v1/test-classifications`; nothing in the product produces them. So all-zero
+counts are ambiguous — read `everIngested`: `false` means this org has never ingested
+one (go wire it up), `true` means the window genuinely had no classified failures.
 
 #### Coverage on `/tests/costliest`
 
-Each row carries both `executionCount` (all executions in the window) and
-`reportedExecutions` (those that reported usage). Per-test usage is only recorded
-by runners new enough to send it, so a large gap means the ranking is drawn from
-a thin sample. Tests with `reportedExecutions = 0` are omitted entirely rather
-than shown at zero tokens, which would read as "free" instead of "unknown".
+`executionCount` is every execution in the window; `reportedExecutions` is those that
+reported usage — a large gap means the ranking rests on a thin sample. Each average
+divides by its own metric's count (`reportedTokenExecutions` /
+`reportedCallExecutions`), because calls and tokens are reported independently and a
+result can carry one without the other. Tests reporting neither are omitted rather
+than shown at zero, which would read as "free" instead of "unknown".
 
 #### Reconciling job counts
 
@@ -339,26 +361,48 @@ windows on the billing ledger's `usage_at`; the latter returns **every** dispatc
 and windows on `gha_runner_dispatches.created_at`. Filter to `billed: true` to
 close most of the gap; the remainder is the window-column difference at the edges.
 
+`vmMinutes` is `null`, never `0`, for a dispatch with no linked run — treat it as
+unknown rather than free, or a reconstructed total will under-count. There is no
+per-job cost field, because the billing ledger prices compute per tier rather than
+per workflow job. Derive it: `/analytics/usage` gives `vmMinutes` and
+`billedMicrocents` per runner tier under `compute.measurements.byRunner[]`, so a
+tier's effective price per minute is that quotient, and a job's cost is its
+`vmMinutes` times the rate for its `runnerLabel`.
+
 #### `GET /v1/analytics/usage` — usage, cost, and optimization levers
 
-The one endpoint that surfaces **what your testing costs and how to cut it**. All
-money is in **microcents** (`1_000_000` = $1.00) as strings (they exceed a JS
-number), and is the **customer price** — never a provider or internal rate. Token
-counts are numbers. Nested breakdowns to reason over:
+The one endpoint that surfaces **what your testing costs and how to cut it**.
+Money and rates follow the units above. Nested breakdowns to reason over:
 
 - **`byOperation[]`** — `{ operation, calls, inputTokens, outputTokens, thinkingTokens, cacheReadTokens, totalTokens }`. Usage per step type (`action`, `verify_ai`, `evaluate_if` / `evaluate_while` / `evaluate_wait_until`, …). The lever: if `evaluate_wait_until` dominates, that AI-polling step is your token sink — convert it to a deterministic wait or a tighter condition.
 - **`byModel[]`** — usage per `{ provider, model, routing }`: `{ …, pricingTier, calls, …tokenCounts }`. Covers **both** proxied and BYOK traffic. `pricingTier` (`lite`/`standard`/`pro`) is set only on `routing: "proxy"` rows and is `null` for `byok` / `custom_endpoint`. **No cost field** — this is the usage view. The lever: if an expensive model carries most tokens, move that operation to a cheaper one.
-- **`byModelTier[]`** — `{ tier, billedTokens, billedMicrocents }`, **proxy billing only**; empty for a pure-BYOK org. The lever: shows whether spend concentrates in the expensive tier — tiers differ by roughly 3x per token, so moving work to a cheaper tier is usually the single largest saving available. Read live from the billing ledger on your exact window, so when `windowPrecision` is `"exact"` it sums to the headline `billedMicrocents`; under `"daily"` it will not, because the headline is then day-truncated.
-- **`compute`** — the machine plane: `{ measurements, ratios, hints }` covering runner VM minutes and cost, tests-per-job, and achieved concurrency, with a hint when runners are oversized for the parallelism achieved. `null` for orgs not on hosted runners.
+- **`byModelTier[]`** — `{ tier, billedTokens, billedMicrocents }`, **proxy billing only**; empty for a pure-BYOK org. The lever: shows whether spend concentrates in the expensive tier. Rates are per-org and live in the price card, not in this payload — divide a row's `billedMicrocents` by its `billedTokens` to get what that tier actually costs you per token, then compare rows before deciding a move is worth it. Read live from the billing ledger on your exact window — on this API the headline `billedMicrocents` *is* the sum of these rows, so the two reconcile exactly.
+- **`compute`** — the machine plane: `{ measurements, ratios, hints }` covering runner VM minutes and cost, tests-per-job, and achieved concurrency. `null` for orgs not on hosted runners. Its hints are richer than the top-level ones — `{ code, severity, message, evidence, knobs[], estimatedImpact, confidence }` — under two codes: `oversized_runner` (runners wider than the parallelism achieved) and `over_sharded` (too few tests per job to amortize setup). `estimatedImpact` always names the `assumption` it holds under, and `autoApply` is always `false`: we cannot see whether a job also builds or bundles, which may justify a wide runner the test phase does not use.
 - **`hints[]`** — `{ code, message }` optimization suggestions computed from the same numbers in the response. Current codes: `dominant_action_tokens` (AI actions are the majority of your TOKENS — the page context sent per call is the lever), `dominant_ai_conditions` (IF/WHILE/WAIT_UNTIL are the majority of your CALLS — deterministic waits remove them), `low_cache_hit_rate`. Ratio hints are suppressed below a floor of ~50 calls, so a short window can legitimately return `[]`; widen it before concluding there is nothing to optimize.
 
-`billedMicrocents` is `null` for a BYOK-only org and for an empty window. `byModel` /
-`compute` are runner-reported and can under-count if a run never uploaded its usage
-summary; `byModelTier` (the billing ledger) is always complete. `cacheHitRate` and
-`healRate` are `null` when no run reported a cache summary — that is "not
-reported", NOT a 0% hit rate, and it is currently null for every org. To attribute a job's
-setup vs. test time, page `GET /v1/analytics/compute/jobs`: each row carries
-`testCount` and `testExecutionMinutes` alongside `startedAt`/`completedAt`, so
+**Which totals are complete.** `billedMicrocents` is `null` for a BYOK-only org and
+for an empty window. `byModel` and `compute` are runner-reported and can under-count
+when a run never uploaded its usage summary; `byModelTier` (the billing ledger) is
+always complete. `cacheHitRate` and `healRate` are `null` when no run reported a
+cache summary — that is "not reported", NOT a 0% hit rate, and `low_cache_hit_rate`
+cannot fire while they are null.
+
+**`tokensTotal` is billed tokens, not all tokens.** It is the sum of
+`byModelTier[].billedTokens`, and that ledger is proxy-only by construction: BYOK and
+custom-endpoint calls never reach the proxy, so they are billed nothing and appear
+nowhere in it. A BYOK org therefore reads `tokensTotal: 0` beside a populated
+`byOperation` and a non-zero `tokensPerTest` — those come from the runner-reported
+analytics plane, which does cover BYOK. Read `byOperation` for "how many tokens did
+we spend", `tokensTotal` for "how many were we billed for".
+
+**Two compute cost figures, deliberately different.** `computeBilledMicrocents`
+covers every billed compute meter — CI runners **plus hosted workspaces**.
+`compute.measurements.billedMicrocents` covers CI runners only. Expect the first to
+be the larger of the two; the gap is workspace compute, not an error in either.
+
+**Setup vs. test time.** Page `GET /v1/analytics/compute/jobs?includeTests=1`: each
+row then carries `testCount` and `testExecutionMinutes` alongside
+`startedAt`/`completedAt`, so
 
     concurrency  = testExecutionMinutes / wallClockMinutes
     setupMinutes = wallClockMinutes - testExecutionMinutes
@@ -375,8 +419,15 @@ curl -H "Authorization: Bearer $SHIPLIGHT_API_TOKEN" \
   "$SHIPLIGHT_API_URL/v1/analytics/usage?from=2026-06-01T00:00:00Z&to=2026-07-01T00:00:00Z"
 ```
 
+`byOperation` and `byModel` are truncated to one row here; a real response carries
+one per operation and per model. Note that `byModelTier` sums to both `tokensTotal`
+and `billedMicrocents`, and that `computeBilledMicrocents` exceeds
+`compute.measurements.billedMicrocents` by the workspace compute the latter omits.
+
 ```json
 {
+  "window": { "from": "2026-06-01T00:00:00.000Z", "to": "2026-07-01T00:00:00.000Z" },
+  "windowPrecision": "exact",
   "testRuns": 100,
   "testCount": 5000,
   "tokensTotal": 50000000,
@@ -384,7 +435,10 @@ curl -H "Authorization: Bearer $SHIPLIGHT_API_TOKEN" \
   "computeBilledMicrocents": "300000000",
   "tokensPerTest": 10000,
   "llmCallsPerTest": 5,
+  "avgRunDurationSec": 412.5,
+  "avgTestDurationSec": 38.2,
   "cacheHitRate": null,
+  "healRate": null,
   "byOperation": [
     { "operation": "evaluate_wait_until", "calls": 1500, "totalTokens": 12000000 }
   ],
@@ -392,11 +446,15 @@ curl -H "Authorization: Bearer $SHIPLIGHT_API_TOKEN" \
     { "provider": "anthropic", "model": "claude-sonnet-5", "routing": "proxy", "pricingTier": "standard", "calls": 800, "totalTokens": 6000000 }
   ],
   "byModelTier": [
-    { "tier": "pro", "billedTokens": 900000000, "billedMicrocents": "600000000" }
+    { "tier": "standard", "billedTokens": 40000000, "billedMicrocents": "400000000" },
+    { "tier": "pro", "billedTokens": 10000000, "billedMicrocents": "800000000" }
   ],
   "compute": {
+    "measurements": { "billedMicrocents": "280000000", "vmMinutes": 4200, "jobs": 310, "tests": 5000 },
     "ratios": { "concurrentTestsPerVmMinute": 1.6, "coreUtilization": 0.12 },
-    "hints": [{ "code": "oversized_runner", "message": "Runners average 16 vCPUs but run ~1.6 tests at a time." }]
+    "hints": [
+      { "code": "oversized_runner", "severity": "medium", "confidence": "medium", "message": "Runners average 16 vCPUs but run ~1.6 tests at a time.", "autoApply": false }
+    ]
   },
   "hints": []
 }
