@@ -260,7 +260,7 @@ Shared query params (each endpoint uses the subset it needs):
 
 | Endpoint | Description | Returns |
 |----------|-------------|---------|
-| `GET /v1/analytics/summary` | Headline run + test pass rates and totals for the window | `{ runPassRate, testPassRate, totalRuns, decidedRuns, totalTestExecutions, decidedTestExecutions }` (rates 0–1) |
+| `GET /v1/analytics/summary` | Headline run + test pass rates and totals for the window | `{ runPassRate, testPassRate, totalRuns, decidedRuns, totalTestExecutions, decidedTestExecutions }` — rates are **percentages (0–100)**, e.g. `15` means 15%, not 1500% |
 | `GET /v1/analytics/trends/pass-rate` | Run pass rate over time | `[{ date, passRate, totalRuns, passedRuns, failedRuns }]` |
 | `GET /v1/analytics/trends/run-status` | Passed vs failed run counts over time | `[{ date, passedRuns, failedRuns, totalRuns, passRate }]` |
 | `GET /v1/analytics/trends/test-results` | Test-result counts (passed/flaky/failed/skipped) over time | `[{ date, passed, flaky, failed, skipped, total, passRate }]` |
@@ -268,12 +268,15 @@ Shared query params (each endpoint uses the subset it needs):
 | `GET /v1/analytics/tests/failing` | Tests ranked by failure rate | `[{ file, testName, passedCount, flakyCount, failedCount, passRate, flakeRate, totalExecutions }]` |
 | `GET /v1/analytics/tests/flaky` | Tests ranked by flakiness | same shape as `tests/failing` |
 | `GET /v1/analytics/tests/slowest` | Tests ranked by duration (p50/p95) | `[{ file, testName, p50Ms, p95Ms, executionCount }]` |
-| `GET /v1/analytics/attribution/summary` | Failure counts by cause category | `{ classifiedFailures, byCategory: { app_regression, spec_issue, test_data, infra_flake, unknown } }` (counts; shares = `byCategory[c]/classifiedFailures`) |
+| `GET /v1/analytics/tests/costliest` | Tests ranked by LLM usage — which tests drive token spend. `sortBy` is `tokens` \| `calls` \| `avgTokens` (default `tokens`); the duration route's `sortBy` values are rejected here. | `[{ file, testName, executionCount, reportedExecutions, totalTokens, totalCalls, avgTokens, avgCalls }]` — see the coverage note below |
+| `GET /v1/analytics/attribution/summary` | Failure counts by cause category | `{ classifiedFailures, byCategory: {…}, everIngested }` — see the attribution note below |
 | `GET /v1/analytics/attribution/trend` | Failure category counts over time | `[{ date, app_regression, spec_issue, test_data, infra_flake, unknown }]` |
 | `GET /v1/analytics/attribution/repos` | Repos that have classification data | `["org/repo", …]` |
 | `GET /v1/analytics/attribution/branches` | Branches that have classification data (accepts `repo` to scope) | `["main", …]` |
-| `GET /v1/analytics/usage` | LLM + compute usage and cost for the window, with optimization hints. **`repo`/`branch`/`bucket` do not apply** (org-wide only). | `{ testRuns, testCount, tokensTotal, billedMicrocents, computeBilledMicrocents, tokensPerTest, llmCallsPerTest, cacheHitRate, healRate, byOperation[], hints[], compute, byModel[], byModelTier[] }` — see notes below |
-| `GET /v1/analytics/compute/jobs` | Per-job runner rows keyed by GitHub `workflowJobId`, for joining against the CI provider's own per-step timings. Honors `repo`/`branch`; paginated via `limit` (max `200`) + `cursor`. | `{ jobs: [{ workflowRunId, workflowJobId, workflowRunAttempt, repo, headSha, headRef, runnerLabel, vcpus, vmMinutes, startedAt, completedAt }], nextCursor }` |
+| `GET /v1/analytics/usage` | LLM + compute usage and cost for the window, with optimization hints. Org-wide only — **`repo`/`branch` are rejected with `400`**, because billed cost carries no repo dimension and org-wide totals under a repo filter would misattribute spend. | `{ testRuns, testCount, tokensTotal, billedMicrocents, computeBilledMicrocents, tokensPerTest, llmCallsPerTest, avgRunDurationSec, avgTestDurationSec, cacheHitRate, healRate, byOperation[], hints[], compute, byModel[], byModelTier[], windowPrecision }` — see notes below |
+| `GET /v1/analytics/runs/{runId}/usage` | LLM usage + estimated cost for ONE run, with the per-operation breakdown. Database-backed, so it outlives the run's artifacts. | `{ runId, llmCalls, tokensTotal, estimatedCostMicrocents, cacheHitRate, healRate, cache, byOperation[], hints[] }` |
+| `GET /v1/analytics/runs/{runId}/results/{resultId}/usage` | LLM usage + priced cost for ONE test result, per attempt and per step. Read from the result's report artifact, so it disappears when that artifact expires. | `{ testResultId, reported, segments: [{ attempt, outcome, total, steps[], byOperation[] }], total, byOperation }` |
+| `GET /v1/analytics/compute/jobs` | Per-job runner rows keyed by GitHub `workflowJobId`. Carries per-job test attribution, so setup-vs-test share needs no GitHub call. Honors `repo`/`branch`; paginated via `limit` (max `200`) + `cursor`. | `{ jobs: [{ workflowRunId, workflowJobId, workflowRunAttempt, repo, headSha, headRef, runnerLabel, vcpus, vmMinutes, startedAt, completedAt, billed, testCount, testExecutionMinutes }], nextCursor }` |
 
 Example — `GET /v1/analytics/tests/failing`:
 
@@ -292,6 +295,50 @@ Example — `GET /v1/analytics/tests/failing`:
 ]
 ```
 
+#### Window precision — read this before quoting any cost figure
+
+`/v1/analytics/usage` returns **`windowPrecision`**, and it changes what the money
+means:
+
+- **`"exact"`** — `tokensTotal`, `billedMicrocents`, and `computeBilledMicrocents`
+  are read from the billing ledger on your precise `[from, to)`. This is what the
+  API returns.
+- **`"daily"`** — those three come from a day-granular rollup that truncates BOTH
+  bounds to whole days. A window is credited a day it merely clips, the
+  in-progress current day is dropped, and **a window spanning no midnight returns
+  zero**. Other surfaces (the web Usage page) read this mode.
+
+Everything else in the payload — `testRuns`, `testCount`, the `compute` block —
+is always windowed on exact timestamps. Do not compare a cost figure against a
+run count and assume they cover the same span unless `windowPrecision` is
+`"exact"`.
+
+#### Attribution is customer-fed, not computed
+
+`/v1/analytics/attribution/*` reads failure classifications that **you ingest**
+via `POST /v1/test-classifications`. Nothing in the product produces them, so an
+org that never wired that up returns all zeros forever — which is
+indistinguishable from "nothing failed" on the counts alone. Read
+**`everIngested`**: `false` means no classification has ever been ingested for
+this org (go wire it up), `true` with zero counts means the window genuinely had
+no classified failures.
+
+#### Coverage on `/tests/costliest`
+
+Each row carries both `executionCount` (all executions in the window) and
+`reportedExecutions` (those that reported usage). Per-test usage is only recorded
+by runners new enough to send it, so a large gap means the ranking is drawn from
+a thin sample. Tests with `reportedExecutions = 0` are omitted entirely rather
+than shown at zero tokens, which would read as "free" instead of "unknown".
+
+#### Reconciling job counts
+
+`compute.measurements.jobs` on `/analytics/usage` and the row count from
+`/compute/jobs` legitimately differ. The former counts only **billed** jobs and
+windows on the billing ledger's `usage_at`; the latter returns **every** dispatch
+and windows on `gha_runner_dispatches.created_at`. Filter to `billed: true` to
+close most of the gap; the remainder is the window-column difference at the edges.
+
 #### `GET /v1/analytics/usage` — usage, cost, and optimization levers
 
 The one endpoint that surfaces **what your testing costs and how to cut it**. All
@@ -301,15 +348,27 @@ counts are numbers. Nested breakdowns to reason over:
 
 - **`byOperation[]`** — `{ operation, calls, inputTokens, outputTokens, thinkingTokens, cacheReadTokens, totalTokens }`. Usage per step type (`action`, `verify_ai`, `evaluate_if` / `evaluate_while` / `evaluate_wait_until`, …). The lever: if `evaluate_wait_until` dominates, that AI-polling step is your token sink — convert it to a deterministic wait or a tighter condition.
 - **`byModel[]`** — usage per `{ provider, model, routing }`: `{ …, pricingTier, calls, …tokenCounts }`. Covers **both** proxied and BYOK traffic. `pricingTier` (`lite`/`standard`/`pro`) is set only on `routing: "proxy"` rows and is `null` for `byok` / `custom_endpoint`. **No cost field** — this is the usage view. The lever: if an expensive model carries most tokens, move that operation to a cheaper one.
-- **`byModelTier[]`** — `{ tier, billedTokens, billedMicrocents }`, **proxy billing only**; empty for a pure-BYOK org. The lever: shows whether spend concentrates in the expensive tier. Sourced live from the billing ledger, so it will **not** sum exactly to the headline `billedMicrocents` (a day-truncated rollup) — use it for the tier *distribution*, the headline for the total.
+- **`byModelTier[]`** — `{ tier, billedTokens, billedMicrocents }`, **proxy billing only**; empty for a pure-BYOK org. The lever: shows whether spend concentrates in the expensive tier — tiers differ by roughly 3x per token, so moving work to a cheaper tier is usually the single largest saving available. Read live from the billing ledger on your exact window, so when `windowPrecision` is `"exact"` it sums to the headline `billedMicrocents`; under `"daily"` it will not, because the headline is then day-truncated.
 - **`compute`** — the machine plane: `{ measurements, ratios, hints }` covering runner VM minutes and cost, tests-per-job, and achieved concurrency, with a hint when runners are oversized for the parallelism achieved. `null` for orgs not on hosted runners.
-- **`hints[]`** — `{ code, message }` optimization suggestions computed from the same numbers in the response.
+- **`hints[]`** — `{ code, message }` optimization suggestions computed from the same numbers in the response. Current codes: `dominant_action_tokens` (AI actions are the majority of your TOKENS — the page context sent per call is the lever), `dominant_ai_conditions` (IF/WHILE/WAIT_UNTIL are the majority of your CALLS — deterministic waits remove them), `low_cache_hit_rate`. Ratio hints are suppressed below a floor of ~50 calls, so a short window can legitimately return `[]`; widen it before concluding there is nothing to optimize.
 
 `billedMicrocents` is `null` for a BYOK-only org and for an empty window. `byModel` /
 `compute` are runner-reported and can under-count if a run never uploaded its usage
-summary; `byModelTier` (the billing ledger) is always complete. To attribute a job's
-setup vs. test time, page `GET /v1/analytics/compute/jobs` and join each
-`workflowJobId` against `GET /repos/{owner}/{repo}/actions/jobs/{job_id}` on GitHub.
+summary; `byModelTier` (the billing ledger) is always complete. `cacheHitRate` and
+`healRate` are `null` when no run reported a cache summary — that is "not
+reported", NOT a 0% hit rate, and it is currently null for every org. To attribute a job's
+setup vs. test time, page `GET /v1/analytics/compute/jobs`: each row carries
+`testCount` and `testExecutionMinutes` alongside `startedAt`/`completedAt`, so
+
+    concurrency  = testExecutionMinutes / wallClockMinutes
+    setupMinutes = wallClockMinutes - testExecutionMinutes
+
+The subtraction only holds when concurrency is at or below ~1 — tests run in
+parallel inside a job, so `testExecutionMinutes` can exceed wall clock and the
+difference then means nothing. Check the ratio first. For the finer breakdown
+(checkout vs install vs browser download) join `workflowJobId` against
+`GET /repos/{owner}/{repo}/actions/jobs/{job_id}` on GitHub, which is the only
+source of per-STEP timings.
 
 ```bash
 curl -H "Authorization: Bearer $SHIPLIGHT_API_TOKEN" \
@@ -461,7 +520,7 @@ audio had no detectable speech.
 
 1. `GET /v1/analytics/summary?repo=org/repo` — overall run/test pass rates for the repo.
 2. `GET /v1/analytics/attribution/summary?repo=org/repo` — of the classified failures, what share are `app_regression` (real bugs to fix) vs `infra_flake` (noise to ignore).
-3. `GET /v1/analytics/tests/failing?repo=org/repo&limit=10` — the ranked worklist; `GET /v1/analytics/tests/flaky` for retry-maskers, `GET /v1/analytics/tests/slowest` for perf.
+3. `GET /v1/analytics/tests/failing?repo=org/repo&limit=10` — the ranked worklist; `GET /v1/analytics/tests/flaky` for retry-maskers, `GET /v1/analytics/tests/slowest` for perf, `GET /v1/analytics/tests/costliest` for token spend.
 4. Drop to the raw endpoints above (`/v1/test-results?repo=&file=`, `/v1/s3/file`) to fetch a specific test's report/artifacts.
 ### Author a Test from a Recorded Session
 
