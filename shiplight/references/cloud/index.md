@@ -266,7 +266,7 @@ field against the wrong one is the easiest way to be wrong by 100x or 1,000,000x
   `tests/flaky`. `80` means 80%.
 - **Fractions, `0`–`1`.** `cacheHitRate` / `healRate` on `usage` and
   `runs/{runId}/usage`, and every ratio under `compute.ratios`. `0.12` means 12%.
-- **Microcents as strings** (`1_000_000` = $1.00; they exceed a JS number). Every
+- **Microcents as strings** (`100_000` = $1.00; they exceed a JS number). Every
   `*Microcents` field.
 - **Formatted USD strings.** `runs/{runId}/results/{resultId}/usage` alone prices
   in `estimatedCostUsd` (e.g. `"0.0042"`) — dollars, not microcents. It pairs with
