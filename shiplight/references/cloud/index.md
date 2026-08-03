@@ -71,7 +71,11 @@ Ordered by `createdAt` descending.
 
 **Response:** array of `{ id, status, result, branch, commitSha, repo, target, startTime, endTime, totalTestCount, passedCount, flakyCount, failedCount, skippedCount, metadata, ... }`.
 
-`passedCount` includes `flakyCount` (use `passedCount - flakyCount` for strict passes); `failedCount` includes `timedout`. Sum = `totalTestCount`.
+`passedCount` is a run-completion compatibility total: it includes `flakyCount`
+because a retry-passed test does not fail its run. Use
+`passedCount - flakyCount` for strict first-attempt passes. `failedCount` includes
+`timedout`. Therefore `totalTestCount = passedCount + failedCount + skippedCount`;
+do not add `flakyCount` again.
 
 ### Get Test Run
 
@@ -153,7 +157,10 @@ curl -H "Authorization: Bearer $SHIPLIGHT_API_TOKEN" \
   "$SHIPLIGHT_API_URL/v1/failing-tests?repo=org/repo"
 ```
 
-For each unique `(file, testName)` in the window, returns its latest row when the result is `failed` or `timedout`.
+For each unique `(file, testName)` in the window, returns its latest row when the
+result is `failed` or `timedout`. A later `passed` or `flaky` result removes an
+earlier failure from this current-state list. Rows are ordered by `file`, then
+`testName`, ascending.
 
 | Param | Type | Description |
 |-------|------|-------------|
@@ -191,7 +198,10 @@ curl -H "Authorization: Bearer $SHIPLIGHT_API_TOKEN" \
   "$SHIPLIGHT_API_URL/v1/flaky-tests?repo=org/repo"
 ```
 
-For each unique `(file, testName)` in the window, returns its latest row when the result is `flaky` (passed only after retry).
+For each unique `(file, testName)` in the window, returns its latest row when the
+result is `flaky` (failed an earlier attempt, then passed on retry). A later
+`passed`, `failed`, or `timedout` result removes the earlier flaky result from
+this current-state list. Rows are ordered by `file`, then `testName`, ascending.
 
 | Param | Type | Description |
 |-------|------|-------------|
@@ -258,12 +268,21 @@ Shared query params (each endpoint uses the subset it needs):
 | `sortBy` | string | `p50` \| `p95` \| `executions` — slowest. Default `p50` |
 | `sortOrder` | string | `asc` \| `desc` — slowest + costliest. Default `desc` |
 
+**Choose the right reliability surface.** These endpoints answer different
+questions; do not substitute one for another:
+
+| Surface | Question | Selection and ordering |
+|---------|----------|------------------------|
+| `GET /v1/test-results` | What result rows exist for this file? | Raw history, newest first. Requires `repo` + `file`; optional exact `result` filter. |
+| `GET /v1/failing-tests`, `/v1/flaky-tests` | What is each test's current state inside this window? | Keep the latest row per `(file, testName)`, then filter by outcome. Ordered by `file`, then `testName`, ascending. |
+| `GET /v1/analytics/tests/failing`, `/flaky` | Which tests accumulated the most failing or retry-passed executions? | Aggregate every terminal execution in `[from,to)`. Ordered by count first, then the corresponding rate, descending. |
+
 **Units.** This surface carries two rate scales and two money units. Reading a
 field against the wrong one is the easiest way to be wrong by 100x or 1,000,000x:
 
 - **Percentages, `0`–`100`, one decimal.** `runPassRate` / `testPassRate` on
-  `summary`, and `passRate` / `flakeRate` on `trends/*`, `tests/failing`,
-  `tests/flaky`. `80` means 80%.
+  `summary`; `passRate` on trends; and `passRate` / `flakyRate` on
+  `tests/failing` and `tests/flaky`. `80` means 80%.
 - **Fractions, `0`–`1`.** `cacheHitRate` / `healRate` on `usage` and
   `runs/{runId}/usage`, and every ratio under `compute.ratios`. `0.12` means 12%.
 - **Microcents as strings** (`100_000` = $1.00; they exceed a JS number). Every
@@ -282,8 +301,8 @@ call counts are plain numbers.
 | `GET /v1/analytics/trends/run-status` | Passed vs failed run counts over time | `[{ date, passedRuns, failedRuns, totalRuns, passRate }]` |
 | `GET /v1/analytics/trends/test-results` | Test-result counts (passed/flaky/failed/skipped) over time | `[{ date, passed, flaky, failed, skipped, total, passRate }]` |
 | `GET /v1/analytics/trends/run-duration` | Run-duration percentiles over time | `[{ date, totalRuns, avgDurationSec, p50DurationSec, p95DurationSec, minDurationSec, maxDurationSec }]` |
-| `GET /v1/analytics/tests/failing` | Tests ranked by failure rate | `[{ file, testName, passedCount, flakyCount, failedCount, passRate, flakeRate, totalExecutions }]` |
-| `GET /v1/analytics/tests/flaky` | Tests ranked by flakiness | same shape as `tests/failing` |
+| `GET /v1/analytics/tests/failing` | Tests with at least one failed/timed-out execution, ordered by `failedCount`, then derived failure rate, descending | `[{ file, testName, passedCount, flakyCount, failedCount, passRate, flakyRate, flakeRate, totalExecutions }]` |
+| `GET /v1/analytics/tests/flaky` | Tests with at least one retry-passed execution, ordered by `flakyCount`, then `flakyRate`, descending | same shape as `tests/failing` |
 | `GET /v1/analytics/tests/slowest` | Tests ranked by duration (p50/p95) | `[{ file, testName, p50Ms, p95Ms, executionCount }]` |
 | `GET /v1/analytics/tests/costliest` | Tests ranked by LLM usage — which tests drive token spend. `sortBy` is `tokens` \| `calls` \| `avgTokens` (default `tokens`); the duration route's `sortBy` values are rejected here. | `[{ file, testName, executionCount, reportedExecutions, reportedTokenExecutions, reportedCallExecutions, totalTokens, totalCalls, avgTokens, avgCalls }]` — see the coverage note below |
 | `GET /v1/analytics/attribution/summary` | Failure counts by cause category | `{ classifiedFailures, byCategory: {…}, everIngested }` — see the attribution note below |
@@ -306,11 +325,28 @@ Example — `GET /v1/analytics/tests/failing`:
     "flakyCount": 2,
     "failedCount": 8,
     "passRate": 80,
+    "flakyRate": 4,
     "flakeRate": 4,
     "totalExecutions": 50
   }
 ]
 ```
+
+For both reliability rankings:
+
+```text
+totalExecutions = passedCount + flakyCount + failedCount
+passRate         = passedCount / totalExecutions × 100
+flakyRate        = flakyCount  / totalExecutions × 100
+```
+
+`passRate` is strict: a retry-passed (`flaky`) execution is not in its numerator.
+`failedCount` folds in `timedout`. A `flaky` execution means the same execution
+failed an earlier attempt and passed on retry; cross-run pass/fail transitions do
+not create flaky outcomes. `flakeRate` is a deprecated compatibility alias equal
+to `flakyRate`; read `flakyRate`. There is no `failureRate` field — derive it as
+`failedCount / totalExecutions × 100` when needed. When both documented sort
+keys tie, relative order is unspecified; do not rely on an identity tie-breaker.
 
 #### `windowPrecision`
 
@@ -343,6 +379,10 @@ The response **shape is identical in all three**, so read `total` and map
 `POST /v1/test-classifications`; nothing in the product produces them. So all-zero
 counts are ambiguous — read `everIngested`: `false` means this org has never ingested
 one (go wire it up), `true` means the window genuinely had no classified failures.
+
+`infra_flake` is a failure-attribution category, not the `flaky` terminal outcome.
+It says a failed execution was classified as infrastructure-related; it does not
+increment `flakyCount` or imply that the execution passed on retry.
 
 #### Coverage on `/tests/costliest`
 
@@ -570,15 +610,15 @@ audio had no detectable speech.
 
 ### Triage Failures or Flaky Tests
 
-1. `GET /v1/failing-tests?repo=org/repo` (or `/v1/flaky-tests`) — defaults to the last 7 days on any branch. Add `branch=` to scope, `from`/`to` to widen or shift the window.
+1. `GET /v1/failing-tests?repo=org/repo` (or `/v1/flaky-tests`) — defaults to the last 7 days on any branch. These are current-state lists: a later outcome replaces the earlier one for that test. Add `branch=` to scope, `from`/`to` to widen or shift the window.
 2. For each row, `GET /v1/s3/file?uri=<reportS3Uri>` to fetch the report JSON.
 3. Parse the report and stream any nested `s3://` URIs via `GET /v1/s3/file?uri=…`.
 
 ### Assess Repo Health, Then Triage by Attribution
 
 1. `GET /v1/analytics/summary?repo=org/repo` — overall run/test pass rates for the repo.
-2. `GET /v1/analytics/attribution/summary?repo=org/repo` — of the classified failures, what share are `app_regression` (real bugs to fix) vs `infra_flake` (noise to ignore).
-3. `GET /v1/analytics/tests/failing?repo=org/repo&limit=10` — the ranked worklist; `GET /v1/analytics/tests/flaky` for retry-maskers, `GET /v1/analytics/tests/slowest` for perf, `GET /v1/analytics/tests/costliest` for token spend.
+2. `GET /v1/analytics/attribution/summary?repo=org/repo` — of the classified failures, what share are `app_regression` (application bugs) vs `infra_flake` (infrastructure-related failures to investigate separately; not retry-passed outcomes).
+3. `GET /v1/analytics/tests/failing?repo=org/repo&limit=10` — the historical ranked worklist (failure count first); `GET /v1/analytics/tests/flaky` for retry-maskers (flaky count first), `GET /v1/analytics/tests/slowest` for perf, `GET /v1/analytics/tests/costliest` for token spend.
 4. Drop to the raw endpoints above (`/v1/test-results?repo=&file=`, `/v1/s3/file`) to fetch a specific test's report/artifacts.
 ### Author a Test from a Recorded Session
 
