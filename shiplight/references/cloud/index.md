@@ -71,11 +71,12 @@ Ordered by `createdAt` descending.
 
 **Response:** array of `{ id, status, result, branch, commitSha, repo, target, startTime, endTime, totalTestCount, passedCount, flakyCount, failedCount, skippedCount, metadata, ... }`.
 
-`passedCount` is a run-completion compatibility total: it includes `flakyCount`
-because a retry-passed test does not fail its run. Use
-`passedCount - flakyCount` for strict first-attempt passes. `failedCount` includes
-`timedout`. Therefore `totalTestCount = passedCount + failedCount + skippedCount`;
-do not add `flakyCount` again.
+Run outcome counts are mutually exclusive: `passedCount` is strict passed,
+`flakyCount` is retry-passed, `failedCount` includes `timedout`, and
+`skippedCount` is skipped. Therefore
+`totalTestCount = passedCount + flakyCount + failedCount + skippedCount`. A
+flaky test does not fail the run; the run result is `failed` only when
+`failedCount > 0`.
 
 ### Get Test Run
 
