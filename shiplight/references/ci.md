@@ -41,6 +41,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "22"
+
       - name: Install dependencies
         run: npm ci
 
@@ -137,7 +142,7 @@ jobs:
     with:
       triage-runner: ubuntu-latest      # read-only diagnosis job
       autofix-runner: shiplight-medium  # re-runs tests, so needs browsers/network
-      node-version: "20"
+      node-version: "22"
       allowed-paths: "tests templates"  # top-level dirs the autofix agent may edit (hard guard)
       slack-channel: ${{ vars.SLACK_CHANNEL_ID || '' }}   # empty disables Slack
     secrets:
