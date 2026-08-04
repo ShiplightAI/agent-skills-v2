@@ -95,7 +95,9 @@ Runner sizes: `shiplight-small` (4 vCPU / 16 GB), `shiplight-medium` (8 / 32), `
 
 ## Optional — auto-triage CI failures
 
-When a test workflow above goes red, you can have an AI agent diagnose the failure and, for fixable spec issues, repair it automatically. The shared pipeline lives in [ShiplightAI/ci-triage]; on a failed run it reads the run logs **and** the uploaded report artifacts (screenshots/traces), posts a diagnosis to Slack, and for failures it classifies as fixable spec issues applies the fix, re-runs the test, and opens a PR. It never auto-merges.
+When a test workflow above goes red, you can have an AI agent diagnose the failure and, for fixable spec issues, repair it automatically. The shared pipeline lives in [ShiplightAI/ci-triage]; on a failed run it reads the run logs **and** the uploaded report artifacts (screenshots/traces), classifies each failure, and for fixable spec issues applies the fix, re-runs the test, and opens a PR. It never auto-merges.
+
+The shared workflow does **not** post to Slack, Linear, or any other customer system. It publishes versioned artifacts; the customer-owned caller workflow decides which results to notify or file, and uses its own credentials to do so.
 
 Wiring it up is two steps. Only offer this once a test workflow exists — triage triggers off that workflow's completion.
 
@@ -106,7 +108,7 @@ Triage reads failure evidence from a GitHub artifact, not the cloud. Add this st
 ```yaml
       - name: Upload test report (for triage)
         if: ${{ !cancelled() }}
-        uses: ShiplightAI/ci-triage/upload-report@v1
+        uses: ShiplightAI/ci-triage/upload-report@v1.1
         # sharded/matrix jobs: give each shard a unique name
         # with:
         #   name: test-report-shard-${{ matrix.shardIndex }}
@@ -129,7 +131,7 @@ on:
 
 jobs:
   triage:
-    uses: ShiplightAI/ci-triage/.github/workflows/triage.yml@v1   # pin to an immutable tag, not @main
+    uses: ShiplightAI/ci-triage/.github/workflows/triage.yml@v1.1 # pin to a release tag, not @main
     permissions:
       contents: write
       pull-requests: write
@@ -139,12 +141,10 @@ jobs:
       autofix-runner: shiplight-medium  # re-runs tests, so needs browsers/network
       node-version: "20"
       allowed-paths: "tests templates"  # top-level dirs the autofix agent may edit (hard guard)
-      slack-channel: ${{ vars.SLACK_CHANNEL_ID || '' }}   # empty disables Slack
     secrets:
       claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
       openai_api_key: ${{ secrets.OPENAI_API_KEY }}        # Codex fallback when Claude is unavailable
       autofix_github_token: ${{ secrets.AUTOFIX_GITHUB_TOKEN }}  # PAT/App token to open the PR; falls back to GITHUB_TOKEN
-      slack_bot_token: ${{ secrets.SLACK_BOT_TOKEN }}
       # Per-repo credential mapping → generic env for the autofix re-run.
       # One KEY=VALUE per line; values must be single-line.
       extra_env: |
@@ -157,9 +157,54 @@ Notes:
 
 - `workflows:` must list the exact `name:` of each test workflow to watch. Never list the triage workflow itself there.
 - `extra_env` maps this repo's secret names onto the generic env the autofix job uses so `npx shiplight test` and the MCP browser can authenticate. Mirror the `env:` block from the test workflow.
-- Provide at least one model credential (`claude_code_oauth_token` or `anthropic_api_key`); `openai_api_key` enables the Codex fallback. `autofix_github_token` and `slack_bot_token` are optional.
+- Provide at least one model credential (`claude_code_oauth_token` or `anthropic_api_key`); `openai_api_key` enables the Codex fallback. `autofix_github_token` is optional.
 - `autofix-runner` re-runs the failing test, so it needs browsers/network — use a Shiplight runner, or install Chromium in a stock runner the same way the test workflow does.
 - This job runs privileged (`contents: write`, live credentials). Pin `uses:` to an immutable tag (`@v1.x.y`), not a branch.
+
+### Step 3 — integrate customer notifications or incident systems
+
+Keep every provider integration in a normal caller-owned job after `triage`.
+Download the `triage-context` artifact and read `verdict.json`; its `failures[]`
+entries include the test, classification, confidence, `fixable`, and a stable
+`dedup_key`. The `triage.md` artifact is the human-readable diagnosis.
+
+```yaml
+  publish-triage-incidents:
+    needs: triage
+    if: >-
+      ${{ always() &&
+          (github.event.workflow_run.conclusion == 'failure' ||
+           github.event.workflow_run.conclusion == 'timed_out') }}
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: triage-context
+          path: /tmp/triage-context
+      - name: Publish to the customer's system
+        env:
+          # Keep provider credentials here, never in `extra_env`.
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
+        run: |
+          jq '.failures[]' /tmp/triage-context/verdict.json
+          # Call the selected provider API with the fields the customer needs.
+```
+
+Choose the policy in the caller job: notify all failures, create incidents only
+for `fixable == false`, or route by classification/priority. For an issue tracker,
+use `dedup_key` (or an equivalent stable customer-visible title) to update an
+existing incident instead of opening one on every retry. Do not put opaque
+deduplication markers in user-visible issue descriptions.
+
+The reusable workflow also uploads one `autofix-result-*` artifact for each
+autofix matrix job. It contains `skipped`, `has_changes`, verification status,
+PR URL, and target test. Download these artifacts in a later caller job when a
+separate post-autofix notification is wanted; order that job after the triage
+notification if message ordering matters.
 
 ## Notes
 
