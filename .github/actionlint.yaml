@@ -1,0 +1,6 @@
+self-hosted-runner:
+  labels:
+    - shiplight-small
+    - shiplight-medium
+    - shiplight-large
+    - shiplight-xlarge

@@ -5,9 +5,10 @@ commands for a Shiplight test project. Consumed by `init`, `cover`,
 `create-yaml-tests`, `fix`, `ci`. Note the two spec locations are **distinct
 artifacts**: `cover`'s `specs/<feature>/test-spec.md` is the format-agnostic
 *testing-what contract* (what to prove + priority + modality), while
-`specs/tests/*.md` is the *E2E plan* `create-yaml-tests` authors and implements. All paths are relative to the **test project root** —
-identify it before reading or writing project files; if it's unclear, ask the
-user to confirm before creating or moving files.
+`specs/tests/*.md` is the *E2E plan* `create-yaml-tests` authors and implements.
+Unless explicitly marked repository-root-relative, paths are relative to the
+**test project root** — identify it before reading or writing project files; if
+it's unclear, ask the user to confirm before creating or moving files.
 
 ## Canonical layout
 
@@ -50,6 +51,8 @@ Agents **may edit**:
 - `helpers/**/*.func.ts`
 - `fixtures/**`
 - `package.json` only when changing commands or dependencies
+- `.github/workflows/*.yml` and `.github/workflows/*.yaml`
+  (repository-root-relative) only when running the `ci` subcommand
 
 Agents **must not edit**:
 

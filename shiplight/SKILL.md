@@ -100,7 +100,7 @@ End the menu with one footer line:
 | `fix` | failing test, triage, repair test, update test for product change | `references/fix.md` |
 | `verify` | screenshot, verify the change, check the UI, visual check | `references/verify.md` |
 | `review` | security review, review my app, accessibility, privacy, performance, seo | `references/review/index.md` |
-| `ci` | github actions, ci setup, pipeline | `references/ci.md` |
+| `ci` | github actions, ci setup, pipeline | `references/ci/index.md` |
 | `cloud` | cloud results, test run results, failing tests, flaky tests, ci results, download artifacts, test health, pass rate, pass-rate/run trend, slowest tests, flakiest tests, failure attribution, failure breakdown, analytics | `references/cloud/index.md` |
 | `support` | I'm stuck, contact support, talk to a human, human help, shiplight is broken, report a shiplight bug, file a ticket, support ticket, ticket status | `references/support.md` |
 | `help` | what can shiplight do, list commands, usage, `?` | `references/help.md` |
@@ -178,7 +178,7 @@ optionally append **one** next-step suggestion. Rules:
 | `review` | user fixed UI findings in-session | `verify` to confirm the fixes render |
 | `review` | high-severity findings without regression coverage | `cover` |
 | `ci` | workflow wired | push / open a PR to trigger it, then `cloud` for the first run's results |
-| `ci` | no tests exist yet | `cover` first (precondition, per `ci.md`) |
+| `ci` | no tests exist yet | `cover` first (precondition, per `ci/index.md`) |
 | `cloud` | failing/flaky tests attributed `spec_issue` / drift | `fix` |
 | `cloud` | attribution dominated by `app_regression` | nothing to run — an app bug to report |
 | `cloud` | recorder sessions covering untested flows | `create-yaml-tests` from the recording |
