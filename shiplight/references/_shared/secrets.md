@@ -1,8 +1,8 @@
 # Shared: Secrets policy
 
 The single statement of secret handling across specs, YAML, auth setup, fixtures,
-notes, and reports. Consumed by `auth`, `create-yaml-tests`, `cover`,
-`fix`.
+notes, reports, and CI workflows. Consumed by `auth`, `create-yaml-tests`,
+`cover`, `fix`, `ci`.
 
 - **Never commit raw secrets** — no real passwords, API keys, tokens, cookies, or
   one-time codes in specs, tests, fixtures, config, notes, or docs.

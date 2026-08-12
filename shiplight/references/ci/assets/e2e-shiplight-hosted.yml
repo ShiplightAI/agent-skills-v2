@@ -1,0 +1,23 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  e2e:
+    runs-on: shiplight-small
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run E2E tests
+        run: npx shiplight test
+
+      - name: Upload results to Shiplight
+        if: always()
+        run: npx shiplight report

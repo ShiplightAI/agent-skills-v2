@@ -1,0 +1,26 @@
+name: CI Failure Triage
+
+on:
+  workflow_run:
+    workflows: [E2E Tests]
+    types: [completed]
+
+jobs:
+  triage:
+    uses: ShiplightAI/ci-triage/.github/workflows/triage.yml@v1.2
+    permissions:
+      contents: write
+      pull-requests: write
+      actions: read
+    with:
+      triage-runner: ubuntu-latest
+      autofix-runner: shiplight-medium
+      node-version: "22"
+      allowed-paths: "tests templates"
+      # working-directory: e2e
+    secrets:
+      claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+      openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+      autofix_github_token: ${{ secrets.AUTOFIX_GITHUB_TOKEN }}
+      extra_env: |
+        BASE_URL=${{ vars.BASE_URL }}
