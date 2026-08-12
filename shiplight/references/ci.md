@@ -136,7 +136,7 @@ on:
 
 jobs:
   triage:
-    uses: ShiplightAI/ci-triage/.github/workflows/triage.yml@v1.2 # pin to a release tag, never @main
+    uses: ShiplightAI/ci-triage/.github/workflows/triage.yml@v1.2 # pin to a release tag, not @main
     permissions:
       contents: write
       pull-requests: write
@@ -167,7 +167,7 @@ Notes:
 - Provide at least one model credential (`claude_code_oauth_token` or `anthropic_api_key`); `openai_api_key` enables the Codex fallback. `autofix_github_token` is optional.
 - `autofix-runner` re-runs the failing test, so it needs browsers/network — use a Shiplight runner, or install Chromium in a stock runner the same way the test workflow does.
 - Set `working-directory` only when the Shiplight project is not at the repo root (its `package.json`/`playwright.config.ts` live in a subdirectory). Everything then runs there, and both `allowed-paths` and the verdict's `target_file` are relative to it, not to the repo root. Leave it out for a root-level project.
-- This job runs privileged (`contents: write`, live credentials). Pin `uses:` to a release tag (`@v1.x.y`), never a branch and never `@main`. ci-triage release tags are immutable — a ruleset on `refs/tags/v*` blocks deletion, updates and force-pushes with no bypass actors — so a tag cannot be repointed at different code after you adopt it.
+- This job runs privileged (`contents: write`, live credentials). Pin `uses:` to the latest ci-triage release tag (`@v1.x.y`), not a branch. Release tags are immutable.
 
 ### Step 3 — integrate customer notifications or incident systems
 
