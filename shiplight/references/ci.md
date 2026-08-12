@@ -113,7 +113,7 @@ Triage reads failure evidence from a GitHub artifact, not the cloud. Add this st
 ```yaml
       - name: Upload test report (for triage)
         if: ${{ !cancelled() }}
-        uses: ShiplightAI/ci-triage/upload-report@v1.1
+        uses: ShiplightAI/ci-triage/upload-report@5f0d8356d4ef22859c30cee6a627b930672e89c0 # v1.2
         # sharded/matrix jobs: give each shard a unique name
         # with:
         #   name: test-report-shard-${{ matrix.shardIndex }}
@@ -136,7 +136,7 @@ on:
 
 jobs:
   triage:
-    uses: ShiplightAI/ci-triage/.github/workflows/triage.yml@v1.1 # pin to a release tag, not @main
+    uses: ShiplightAI/ci-triage/.github/workflows/triage.yml@5f0d8356d4ef22859c30cee6a627b930672e89c0 # v1.2 — pin by SHA, not @main or a bare tag
     permissions:
       contents: write
       pull-requests: write
@@ -145,7 +145,9 @@ jobs:
       triage-runner: ubuntu-latest      # read-only diagnosis job
       autofix-runner: shiplight-medium  # re-runs tests, so needs browsers/network
       node-version: "22"
-      allowed-paths: "tests templates"  # top-level dirs the autofix agent may edit (hard guard)
+      # working-directory: e2e            # only if the Shiplight project is NOT the repo root
+      allowed-paths: "tests templates"  # dirs the autofix agent may edit, relative to
+                                        # working-directory (hard guard)
     secrets:
       claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
       openai_api_key: ${{ secrets.OPENAI_API_KEY }}        # Codex fallback when Claude is unavailable
@@ -164,7 +166,8 @@ Notes:
 - `extra_env` maps this repo's secret names onto the generic env the autofix job uses so `npx shiplight test` and the MCP browser can authenticate. Mirror the `env:` block from the test workflow.
 - Provide at least one model credential (`claude_code_oauth_token` or `anthropic_api_key`); `openai_api_key` enables the Codex fallback. `autofix_github_token` is optional.
 - `autofix-runner` re-runs the failing test, so it needs browsers/network — use a Shiplight runner, or install Chromium in a stock runner the same way the test workflow does.
-- This job runs privileged (`contents: write`, live credentials). Pin `uses:` to an immutable tag (`@v1.x.y`), not a branch.
+- Set `working-directory` only when the Shiplight project is not at the repo root (its `package.json`/`playwright.config.ts` live in a subdirectory). Everything then runs there, and both `allowed-paths` and the verdict's `target_file` are relative to it, not to the repo root. Leave it out for a root-level project.
+- This job runs privileged (`contents: write`, live credentials). Pin `uses:` to a full commit SHA with the release tag as a trailing comment, as above — not a branch, and not a bare tag, which can be moved after you adopt it. Resolve a newer release with `git ls-remote https://github.com/ShiplightAI/ci-triage 'refs/tags/v1.3^{}'` — the `^{}` matters, since without it an annotated tag returns the tag object rather than the commit, and `uses:` needs the commit.
 
 ### Step 3 — integrate customer notifications or incident systems
 
