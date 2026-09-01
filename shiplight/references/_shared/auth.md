@@ -1,7 +1,7 @@
 # Shared: Auth
 
 The single source for Shiplight auth, consumed by `verify`, `create-yaml-tests`,
-`fix`, and the `auth` subcommand. There are **two execution contexts** — pick by
+`fix`, and the `setup-test-auth` subcommand. There are **two execution contexts** — pick by
 how the work runs:
 
 - **Browser-session auth** — for the main agent driving an MCP browser session

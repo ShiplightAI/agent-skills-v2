@@ -1,6 +1,6 @@
 ---
 name: shiplight
-description: "Shiplight QA toolkit — the single entry point for all Shiplight test/QA work. Use ONLY when the user explicitly says 'shiplight' (e.g. 'write a shiplight test', 'use shiplight to verify X', 'shiplight cover') or invokes /shiplight. Routes to subcommands: init, auth, update, create-yaml-tests, create-agent-verification, cover, fix, verify, review, ci, cloud, support, help."
+description: "Shiplight QA toolkit — the single entry point for all Shiplight test/QA work. Use ONLY when the user explicitly says 'shiplight' (e.g. 'write a shiplight test', 'use shiplight to verify X', 'shiplight cover') or invokes /shiplight. Routes to subcommands: init, setup-test-auth, update, create-yaml-tests, create-agent-verification, cover, fix, verify, review, ci, cloud, support, help."
 ---
 
 # Shiplight
@@ -59,7 +59,7 @@ Show this grouped menu when invoked bare or when clarifying.
 
 **Setup**
 - `init` — scaffold a Shiplight test project + write `specs/context.md`
-- `auth` — set up / repair login and saved storage state
+- `setup-test-auth` — configure login for the application under test and save reusable browser/Playwright state
 - `update` — refresh installed Shiplight skills + the `shiplightai` CLI
 
 **Author**
@@ -78,7 +78,7 @@ Show this grouped menu when invoked bare or when clarifying.
 
 **Ship**
 - `ci` — wire CI workflows + failure-triage pipeline
-- `cloud` — read Shiplight Cloud (Nova) test results (runs, failing/flaky tests, artifacts) and analytics (health summary, pass-rate/run trends, slowest/flaky rankings, failure attribution)
+- `cloud` — read Shiplight Cloud test results (runs, failing/flaky tests, artifacts) and analytics (health summary, pass-rate/run trends, slowest/flaky rankings, failure attribution)
 
 **Help**
 - `help` — list subcommands, or `help <subcommand>` for details (does not execute)
@@ -92,7 +92,7 @@ End the menu with one footer line:
 | Canonical | Synonyms / intents | Reference |
 |-----------|--------------------|-----------|
 | `init` | set up shiplight, new test project, scaffold | `references/init.md` |
-| `auth` | log in, save session, storage state, authentication | `references/auth.md` |
+| `setup-test-auth` | test app auth, application-under-test login, authenticated test account, save test session, storage state | `references/setup-test-auth.md` |
 | `update` | self-update, upgrade skills, refresh skills, upgrade the shiplight cli, bump shiplightai, cli out of date | `references/update.md` |
 | `create-yaml-tests` | yaml test(s), create a yaml test, write a yaml/e2e test, deterministic test, e2e test, write a test | `references/create-yaml-tests/index.md` |
 | `create-agent-verification` | agent verification, create agent verification, verification script, repeatable agent check, live-env verification, full-stack test, cross-layer test, test the whole stack, drive the UI and check the backend/database, verify the backend state too, release smoke test, pre-release smoke | `references/create-agent-verification/index.md` |
@@ -121,13 +121,17 @@ End the menu with one footer line:
 - **"triage"** → in Shiplight this means `fix` (repair failing tests). Do not
   confuse with `review`'s internal triage/plan step.
 - **"failing tests" / "flaky tests"** → *reading* them from CI ("in the cloud",
-  "from the last run", plural reporting) is `cloud` (Nova results); *repairing* a
+  "from the last run", plural reporting) is `cloud` (hosted results); *repairing* a
   broken test ("my test is failing", "fix this") is `fix`. Ask if the phrasing
   doesn't say which.
 - **"report a bug" / "X is broken"** → depends on *what* is broken. The user's
   app misbehaving is ground truth to report (`_shared/ground-truth.md`), not a
   subcommand; Shiplight itself misbehaving (skill, CLI, cloud API) is
   `support`. Ask if unclear which one the user means.
+- **"login" / "auth"** → ask what is being authenticated when the target is
+  absent. Authentication for the application under test is `setup-test-auth`;
+  Shiplight platform authentication and `SHIPLIGHT_API_TOKEN` setup is the CLI
+  command `npx shiplight setup-api-token`, not a `/shiplight` subcommand.
 
 ## After a subcommand completes or aborts (next-step suggestion)
 
@@ -160,8 +164,8 @@ optionally append **one** next-step suggestion. Rules:
 
 | After | Trigger observed during the run | Suggest |
 |-------|--------------------------------|---------|
-| `init` | app has login/authed routes | `auth`; otherwise `cover` |
-| `auth` | invoked to unblock another command | resume that command; otherwise nothing |
+| `init` | app has login/authed routes | `setup-test-auth`; otherwise `cover` |
+| `setup-test-auth` | invoked to unblock another command | resume that command; otherwise nothing |
 | `verify` | passed on a meaningful flow with no YAML test covering it | `cover` (feature-level) or `create-yaml-tests` (single narrow flow) — verify is ephemeral, lock it in |
 | `verify` | UI smells seen while driving: missing labels/roles, no `data-testid`s, brittle DOM, console warnings | `review design` (accessibility + testability) |
 | `verify` | check failed, or the change was trivial | nothing |
@@ -172,9 +176,9 @@ optionally append **one** next-step suggestion. Rules:
 | `create-yaml-tests` | tests pass and no CI E2E workflow exists | `ci` |
 | `create-yaml-tests` | flow's confidence needs API/DB/log state better judged than asserted | `create-agent-verification` |
 | `create-agent-verification` | case `PASS` on a now-stable path **whose proof reduces to fixed conditions** | `create-yaml-tests` (promote to deterministic) — not when its worth is the judgment across evidence |
-| `create-agent-verification` | `BLOCKED` on login/session bootstrap | `auth` |
+| `create-agent-verification` | `BLOCKED` on login/session bootstrap | `setup-test-auth` |
 | `cover` | produced Shiplight tests, no CI wiring | `ci` |
-| `cover` | report rows `BLOCKED` on auth/env | `auth` |
+| `cover` | report rows `BLOCKED` on auth/env | `setup-test-auth` |
 | `review` | user fixed UI findings in-session | `verify` to confirm the fixes render |
 | `review` | high-severity findings without regression coverage | `cover` |
 | `ci` | workflow wired | push / open a PR to trigger it, then `cloud` for the first run's results |

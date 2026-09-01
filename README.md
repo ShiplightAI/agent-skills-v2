@@ -32,6 +32,11 @@ One entry point routes to every workflow:
 - `/shiplight help <subcommand>` explains a subcommand without running it.
 - Subcommands match natural phrasing, so you don't need the exact token — `/shiplight set up tests for my app` → `cover`, `/shiplight show failing tests` → `cloud`.
 
+Authentication uses two deliberately distinct commands: `/shiplight
+setup-test-auth` configures login for the application under test, while `npx
+shiplight setup-api-token` authenticates with Shiplight and writes
+`SHIPLIGHT_API_TOKEN` to the test project's `.env`.
+
 ## Subcommands
 
 ### Setup
@@ -39,7 +44,7 @@ One entry point routes to every workflow:
 | Subcommand | Purpose |
 |------------|---------|
 | `init` | Scaffold a Shiplight test project and write `specs/context.md` |
-| `auth` | Set up or repair login and saved storage state |
+| `setup-test-auth` | Configure login for the application under test and save reusable browser/Playwright state |
 | `update` | Refresh installed Shiplight skills + the `shiplightai` CLI |
 
 ### Author
@@ -75,7 +80,7 @@ One entry point routes to every workflow:
 | Subcommand | Purpose |
 |------------|---------|
 | `ci` | Wire CI workflows and the failure-triage pipeline |
-| `cloud` | Read Shiplight Cloud (Nova) results — runs, failing/flaky tests, artifacts, and analytics (health summary, trends, rankings, failure attribution) (subscription required) |
+| `cloud` | Read Shiplight Cloud results — runs, failing/flaky tests, artifacts, and analytics (health summary, trends, rankings, failure attribution) (subscription required) |
 
 ### Help
 

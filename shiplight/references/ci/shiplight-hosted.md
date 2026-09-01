@@ -7,7 +7,7 @@ Read this only for an ephemeral `shiplight-*` runner.
 - Install the Shiplight GitHub App on the repository or organization. This can
   require administrator approval.
 - Have an organization owner enable runners in Shiplight Org Settings:
-  <https://nova.shiplight.ai/org?tab=settings>.
+  <https://app.shiplight.ai/org?tab=settings>.
 - Do not add `SHIPLIGHT_API_TOKEN`, `SHIPLIGHT_REPORT_TO_CLOUD`, or a Playwright
   browser-install step. The runner provisions credentials and includes Chromium
   with Playwright.

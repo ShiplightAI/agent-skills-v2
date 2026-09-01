@@ -73,7 +73,7 @@ Ask the user which they want. Since editing `.env` normally requires the user's
 explicit ask (`_shared/project-layout.md`), this step **is** that ask — but still
 confirm which variable before writing.
 
-- **Shiplight API token**: run `npx shiplight login` yourself via Bash — it opens
+- **Shiplight API token**: run `npx shiplight setup-api-token` yourself via Bash — it opens
   the user's local browser for device-auth approval on its own (no terminal
   interaction needed from them), polls until they approve, then creates the token
   and writes `SHIPLIGHT_API_TOKEN=...` to `.env` automatically. Tell the user to
@@ -109,5 +109,5 @@ Do not store raw secrets (`_shared/secrets.md`).
 
 ## Next
 
-Suggest per SKILL.md's "After a subcommand completes" table — typically `auth`
+Suggest per SKILL.md's "After a subcommand completes" table — typically `setup-test-auth`
 when the app has login, else `cover` to drive the full create-flow.

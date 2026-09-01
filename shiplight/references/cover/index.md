@@ -105,7 +105,7 @@ what was made. The two Shiplight producers are **two targets among several**:
 
 **Setup is a conditional branch.** When the chosen format is a Shiplight E2E/agent
 test and the project isn't set up, run setup step-0 first: `/shiplight init` (scaffold
-+ context) and `/shiplight auth` (login) as needed. These are idempotent — a no-op on
++ context) and `/shiplight setup-test-auth` (application-under-test login) as needed. These are idempotent — a no-op on
 already-set-up projects (so callers like speckit invoking coverage on
 existing projects are unaffected). Non-Shiplight formats skip this entirely.
 

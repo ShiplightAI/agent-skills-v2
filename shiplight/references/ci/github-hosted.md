@@ -4,7 +4,9 @@ Read this only for a stock GitHub-hosted runner.
 
 ## Requirements
 
-- Create an organization API token at <https://nova.shiplight.ai/api-tokens>.
+- Create an organization API token at <https://app.shiplight.ai/api-tokens>.
+  `npx shiplight setup-api-token` configures a personal token for local use;
+  do not use it as a shared CI credential.
 - Store it as a repository or organization secret named
   `SHIPLIGHT_API_TOKEN`.
 - Put `SHIPLIGHT_API_TOKEN` at job `env` scope because every `npx shiplight`

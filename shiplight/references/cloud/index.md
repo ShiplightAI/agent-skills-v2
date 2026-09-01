@@ -1,16 +1,14 @@
-# cloud — Read Shiplight Cloud (Nova) test results
+# cloud — Read Shiplight Cloud test results
 
-Read-only access to test results on Shiplight Cloud (Nova, `nova-api.shiplight.ai`)
+Read-only access to test results on Shiplight Cloud (`api.shiplight.ai`)
 uploaded by the Shiplight CLI / CI runner: list runs, fetch run details, list
 failing/flaky tests, download artifacts, and read aggregate analytics (summary,
 trends, test rankings, failure attribution). The `/v1` segment is the API contract
 version. Do not publish runs through this subcommand.
 
-> **Scope:** this subcommand targets **Nova (Cloud v2)** only — the forward
-> platform. Legacy Cloud v1 (`api.shiplight.ai`, full push/pull/run/manage) is being
-> deprecated and is **not** in this router; existing customers use the standalone
-> `/cloud` skill until v1 is replaced by v2. Write capabilities land here as Nova
-> gains them.
+> **Scope:** this subcommand targets the current read-only Shiplight Cloud API.
+> It does not expose legacy push/pull/run/manage operations. Add write
+> capabilities here only when the current API supports them.
 
 ## Read first
 
@@ -19,7 +17,7 @@ version. Do not publish runs through this subcommand.
 ## Setup
 
 ```bash
-export SHIPLIGHT_API_URL=https://nova-api.shiplight.ai
+export SHIPLIGHT_API_URL=https://api.shiplight.ai
 ```
 
 All API calls require:
@@ -28,7 +26,10 @@ All API calls require:
 Authorization: Bearer $SHIPLIGHT_API_TOKEN
 ```
 
-If the user provides a token, **ask before writing `.env`** (the edit contract bars editing `.env` unless the user asks); with their OK, add `SHIPLIGHT_API_TOKEN=<token>` and remind them to keep `.env` out of git.
+If no token is available, offer to run `npx shiplight setup-api-token` from the
+test project root and get approval first because it writes `.env`. If the user
+instead provides a token, **ask before writing `.env`**; with their OK, add
+`SHIPLIGHT_API_TOKEN=<token>` and remind them to keep `.env` out of git.
 
 ## CI Integration
 
@@ -41,7 +42,7 @@ To set up a GitHub Actions workflow (default or Shiplight-hosted runners, tokens
 | Status | Action |
 |--------|--------|
 | 400 | Fix the request, IDs, or query parameters. All validation errors return 400. |
-| 401 | Token is missing, invalid, expired, or for the wrong Nova environment. |
+| 401 | Token is missing, invalid, expired, or for the wrong environment. |
 | 403 | Token lacks permission; or the S3 URI points at a non-test-results bucket; or the URI key's first segment is not your organization ID. |
 | 404 | Run, result, or artifact not found for this organization. |
 | 500 | Retry only if idempotent. |

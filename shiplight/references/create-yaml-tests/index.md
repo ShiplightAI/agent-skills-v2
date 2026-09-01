@@ -5,7 +5,7 @@ Producer that implements focused, deterministic Shiplight YAML tests from a
 it. This is the *implement* step — its siblings own the rest of the lifecycle:
 
 - `init` — scaffold the project + write `specs/context.md`
-- `auth` — set up/repair login
+- `setup-test-auth` — set up/repair login for the application under test
 - `fix` — repair failing or drifted tests
 - `cover` — decides what to test, plans the spec, and drives this producer
 
