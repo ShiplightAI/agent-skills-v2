@@ -79,7 +79,10 @@ confirm which variable before writing.
   and writes `SHIPLIGHT_API_TOKEN=...` to `.env` automatically. Tell the user to
   check their browser and approve; use a generous timeout since approval can take
   a few minutes. Don't hand-write the token into `.env` yourself — the command
-  owns that write.
+  owns that write. The device-auth session is not persisted; only the personal API
+  token remains. There is no CLI logout command: remove `SHIPLIGHT_API_TOKEN` from
+  `.env` to stop using it in this project, or revoke the token at
+  <https://app.shiplight.ai/api-tokens> to invalidate it everywhere.
 - **AI provider key**: ask the user for the key, write `<KEY>=<value>` to `.env`
   yourself, and never echo the raw value back in chat or logs.
 

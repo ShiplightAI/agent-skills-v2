@@ -27,7 +27,10 @@ export SHIPLIGHT_API_URL=https://api.shiplight.ai
 All calls send `Authorization: Bearer $SHIPLIGHT_API_TOKEN`. If no token is
 available, offer to run `npx shiplight setup-api-token` from the test project
 root and get approval first because it writes `.env`. The command authenticates
-with Shiplight in the browser and owns that write.
+with Shiplight in the browser and owns that write; it does not persist the browser
+device-auth session. There is no CLI logout command. Remove the token from `.env`
+to stop using it in that project, or revoke it at
+<https://app.shiplight.ai/api-tokens> to invalidate it everywhere.
 
 ## Filing flow (default)
 

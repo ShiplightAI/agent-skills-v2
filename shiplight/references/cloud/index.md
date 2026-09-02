@@ -30,6 +30,9 @@ If no token is available, offer to run `npx shiplight setup-api-token` from the
 test project root and get approval first because it writes `.env`. If the user
 instead provides a token, **ask before writing `.env`**; with their OK, add
 `SHIPLIGHT_API_TOKEN=<token>` and remind them to keep `.env` out of git.
+The setup command does not persist its browser device-auth session. To stop using
+the personal token in this project, remove `SHIPLIGHT_API_TOKEN` from `.env`; to
+invalidate it everywhere, revoke it at <https://app.shiplight.ai/api-tokens>.
 
 ## CI Integration
 
