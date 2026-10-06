@@ -7,7 +7,7 @@ on:
 
 jobs:
   triage:
-    uses: ShiplightAI/ci-triage/.github/workflows/triage.yml@vX.Y
+    uses: ShiplightAI/ci-triage/.github/workflows/triage.yml@<sha> # vX.Y
     permissions:
       contents: write
       pull-requests: write
