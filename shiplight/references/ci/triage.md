@@ -8,19 +8,19 @@ and opens a PR. It never auto-merges.
 The caller workflow owns its `workflow_run` trigger and credential mapping. The
 reusable pipeline lives in [ShiplightAI/ci-triage].
 
-**Resolve the current release tag before writing any workflow.** Do not copy a
+**Resolve the current release before writing any workflow.** Do not copy a
 version out of this document — it goes stale on every ci-triage release:
 
 ```sh
-git ls-remote --tags --refs https://github.com/ShiplightAI/ci-triage 'v*.*' \
-  | sed 's#.*refs/tags/##' | sort -V | tail -1
+git ls-remote --tags https://github.com/ShiplightAI/ci-triage 'v*.*' \
+  | sed 's#refs/tags/##; s#\^{}$##' | sort -s -k2,2V | tail -1
 ```
 
-Substitute that tag for `@vX.Y` in every `uses:` below, including the asset
-workflow. Pattern `v*.*` skips the bare `v1` pointer, which is not maintained;
-`--refs` drops the dereferenced `^{}` entries. Release tags are immutable
-pins — the upstream `release-tags` ruleset blocks deletion, update, and
-non-fast-forward on `refs/tags/v*` — so a resolved tag needs no SHA.
+It prints the release's commit SHA and tag. Replace `<sha> # vX.Y` in every
+`uses:` below, including the asset workflow, with the full 40-character SHA and
+that tag. Pattern `v*.*` skips the bare `v1` pointer, which is not maintained.
+An annotated tag is listed twice; its `^{}` line holds the commit SHA, and the
+stable sort keeps that line last. Never pin a ci-triage `uses:` to a tag.
 
 This workflow includes autofix and PR creation, not diagnosis alone. If the user
 asks only for “triage” without mentioning repair, explain the write behavior and
@@ -34,7 +34,7 @@ After the test step, add this separately from `npx shiplight report`:
 ```yaml
       - name: Upload test report for triage
         if: ${{ !cancelled() }}
-        uses: ShiplightAI/ci-triage/upload-report@vX.Y
+        uses: ShiplightAI/ci-triage/upload-report@<sha> # vX.Y
         with:
           report-dir: shiplight-report
           # Sharded jobs also need a unique artifact name:
@@ -78,8 +78,8 @@ Create `.github/workflows/ci-failure-triage.yml` at the repository root, using
   live below repository root. `allowed-paths` and verdict `target_file` values
   are relative to it.
 - Keep `allowed-paths` limited to the test directories the agent may repair.
-- This pipeline receives write permissions and live credentials. Use a protected
-  immutable release tag, never a branch such as `@main`.
+- This pipeline receives write permissions and live credentials. Pin it to the
+  release commit SHA, never a tag or a branch such as `@main`.
 
 ## 3. Add notifications only when requested
 
